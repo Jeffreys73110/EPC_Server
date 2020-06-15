@@ -47,6 +47,33 @@ uint16_t modify_checksum(uint16_t ori_cs,uint32_t ori_ip,uint32_t new_ip){
 
 	return htons(checksum);
 }
+
+uint16_t modify_port_checksum(uint16_t ori_cs, uint32_t ori_ip, uint32_t new_ip, uint16_t ori_port,uint16_t new_port)
+{
+	uint16_t checksum;
+	ori_cs=ntohs(ori_cs);
+
+	uint32_t ori_ip_n=ntohl(ori_ip);
+	uint32_t new_ip_n=ntohl(new_ip);
+
+	uint32_t ori_ip_n_a=(ori_ip_n>>16);
+	uint32_t new_ip_n_a=(new_ip_n>>16);
+	ori_ip_n_a-=new_ip_n_a;
+	checksum=modify_checksum_add(ori_cs,ori_ip_n_a);
+
+	uint32_t ori_ip_n_b=(ori_ip_n&0xffff);
+	uint32_t new_ip_n_b=(new_ip_n&0xffff);
+	ori_ip_n_b-=new_ip_n_b;
+	checksum=modify_checksum_add(checksum,ori_ip_n_b);
+
+	uint32_t ori_port_n=ntohs(ori_port);
+	uint32_t new_port_n=ntohs(new_port);
+	ori_port_n-=new_port_n;
+	checksum=modify_checksum_add(checksum,ori_port_n);
+
+
+	return htons(checksum);
+}
 uint16_t checksum(uint8_t* s,int len,int offset){
 	uint16_t* ps=(uint16_t*)s;
 	uint32_t sum=0;

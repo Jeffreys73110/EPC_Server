@@ -17,24 +17,7 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include "spgw.h"
-
-void printf_tunnel_ctx(tunnel_ctx_t tct){
-in_addr sin,sin1;
-memcpy(&sin,&tct.enb_ipv4,4);
-if(!tct.vec_nit.empty()){
-memcpy(&sin1,&tct.vec_nit.at(0).ue_ipv4,4);
-}
-	printf("\x1B[32m##########################\n");
-	printf("s11_mme_fteid: %08x\n",tct.s11_mme_fteid);
-	printf("s11_sgw_fteid: %08x\n",tct.s11_sgw_fteid);
-	printf("s1u_enb_fteid: %08x\n",tct.s1u_enb_fteid);
-	printf("s1u_sgw_fteid: %08x\n",tct.s1u_sgw_fteid);
-	printf("enb_ipv4: %s\n",inet_ntoa(sin));
-if(!tct.vec_nit.empty()){
-	printf("ue_ipv4: %s\n",inet_ntoa(sin1));
-}
-	printf("\x1B[0m");
-}
+#include "Func.h"
 
 /************************************************
  *
@@ -79,20 +62,11 @@ void spgw::init(){
 void spgw::init_s1u(){
 	m_s1u_soc=socket(AF_INET,SOCK_DGRAM,0);
 	m_s1u_addr.sin_family=AF_INET;
-	m_s1u_addr.sin_addr.s_addr=inet_addr("10.102.81.102");
+	m_s1u_addr.sin_addr.s_addr=inet_addr(SGW_IP);
 	m_s1u_addr.sin_port=htons(2152);
 	if((bind(m_s1u_soc,(sockaddr*)&m_s1u_addr,sizeof(m_s1u_addr)))==-1){
 		printf("ms1u bind error\n");
 	}
-	
-	/*
-	m_sgi_sip_soc=socket(AF_INET,SOCK_DGRAM,0);
-	m_sgi_sip_addr.sin_family=AF_INET;
-	m_sgi_sip_addr.sin_addr.s_addr=inet_addr("192.168.7.110");  //IMS server IP
-	m_sgi_sip_addr.sin_port=htons(5060);
-	if((bind(m_sgi_sip_soc,(sockaddr*)&m_sgi_sip_addr,sizeof(m_sgi_sip_addr)))==-1){
-		printf("ms1u bind error\n");
-	}*/
 	
 }
 void spgw::init_sgi(){
@@ -109,40 +83,8 @@ void spgw::init_sgi(){
 	}
 
 	// not be used in init functions, but this will be used by other functions
-	m_sgi_addr.sin_addr.s_addr = inet_addr("192.168.7.108");
+	m_sgi_addr.sin_addr.s_addr = inet_addr(PGW_IP);
 	
-/* 
-//test send raw packet
-uint8_t buf[84];
-char buf_c[]="4500005489fb40004001f9720a6651640a66510b08000e1d0e620001da679b5b0000000099e90d0000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637";
-printf("sizeof(c):%lu\n",strlen(buf_c));
-
-c2u(buf,buf_c,84);
-sockaddr_in sin;
-sin.sin_family=AF_INET;
-sin.sin_port=htons(10000);
-sin.sin_addr.s_addr=inet_addr("10.102.81.11");
-	sendto(m_sgi_tx_soc,buf,84,0,(sockaddr*)&sin,sizeof(sockaddr));
-*/
-/* bind eth0
-	strncpy((char*)ifr.ifr_name,"eth0",IFNAMSIZ);
-	if((ioctl(m_sgi_soc,SIOCGIFINDEX,&ifr))==-1){
-		printf("get if index error\n");
-	}
-	sll.sll_family=PF_PACKET;
-	sll.sll_ifindex=ifr.ifr_ifindex;
-	sll.sll_protocol=htons(ETH_P_IP);
-
-
-	if(setsockopt(m_sgi_soc, SOL_SOCKET, SO_REUSEADDR, (char *)&socopt, sizeof(socopt)) < 0){
-		perror("setsockopt()");
-	}
-*/
-/*
-	if((bind(m_sgi_soc,(sockaddr*)&sll,sizeof(sll)))==-1){
-		perror("bind error!");
-	}
-*/
 }
 void* thread_send_echo_request(void* arg){
 	spgw* spgw=spgw::get_instance();
@@ -213,11 +155,14 @@ void spgw::manage_end_session_request(uint32_t global_fteid){
 	m_s11_sgw_fteid_to_tunnel_ctx.erase(global_fteid);
 }
 void spgw::manage_modify_bearer_request(uint32_t s11_sgw_fteid,erab_setuplistctxtsures_t est){
+	LINE_TRACE();
 	std::map<uint32_t,tunnel_ctx_t>::iterator it = m_s11_sgw_fteid_to_tunnel_ctx.find(s11_sgw_fteid);
 	if(it == m_s11_sgw_fteid_to_tunnel_ctx.end()){
+		LINE_TRACE();
 		printf("manage modify bearer request: doesn't find s11_sgw\n");
-		return ;
+		RETURN;
 	}
+	TestMsg_TRACE("\033[1;34m manage_modify_bearer_request, s11_sgw_fteid=%08x, est.s1u_enb_fteid = %08x\033[0m, %d @ %s\n", htonl(s11_sgw_fteid), htonl(est.s1u_enb_fteid), __LINE__, __FILE__);
 	tunnel_ctx_t* ni = &it->second;
 	ni->s1u_enb_fteid = est.s1u_enb_fteid;
 	ni->enb_ipv4 = est.enb_ipv4;
@@ -231,10 +176,13 @@ void spgw::manage_modify_bearer_request(uint32_t s11_sgw_fteid,erab_setuplistctx
 	pthread_mutex_lock(&spgw_enb_info_mutex);
 	m_enb_info.push_back(enb_info);
 	pthread_mutex_unlock(&spgw_enb_info_mutex);
+	RETURN;
 }
 void spgw::manage_s1u_pdu(uint8_t* msg,sockaddr_in* sin,int* len){
+	printf("\n\n\n--- s1u input -----------------------------------------\n");
+	LINE_TRACE();
 	in_addr this_ip;
-	this_ip.s_addr = inet_addr("192.168.7.108");
+	this_ip.s_addr = inet_addr(PGW_IP);
 	int big_udp_flag=0;
 
 	ip* iphdr = (ip*)&msg[GTPV1_LEN]; 
@@ -251,74 +199,40 @@ void spgw::manage_s1u_pdu(uint8_t* msg,sockaddr_in* sin,int* len){
 	memcpy(&nit.ue_ipv4,&iphdr->ip_src,4);
 	memcpy(&nit.out_ipv4,&iphdr->ip_dst,4);
 	memcpy(&nit.proto,&iphdr->ip_p,1);
+	nit.time_stamp = time(NULL);
 
 	// Distinguish TCP from UDP
-	if(iphdr->ip_p==IPPROTO_TCP){			//IPPROTO_TCP:6
+	if(iphdr->ip_p==IPPROTO_TCP)	//IPPROTO_TCP:6
+	{			
 		tcp = (tcphdr*)&msg[GTPV1_LEN+sizeof(ip)];
 		memcpy(&nit.ue_port,&tcp->th_sport,2);
 		memcpy(&nit.out_port,&tcp->th_dport,2);
 	}
-	else if(iphdr->ip_p==IPPROTO_UDP){		//IPPROTO_UDP:17
+	else if(iphdr->ip_p==IPPROTO_UDP)		//IPPROTO_UDP:17
+	{
+		printf("Flags: 0x%04x\n", iphdr->ip_off);
 		udp = (udphdr*)&msg[GTPV1_LEN+sizeof(ip)];
-		if (ntohs(iphdr->ip_off) & 0x2000){
-				printf("Flags:2000\n");
-				m_s1u_udp_port.insert(std::pair<short unsigned int, short unsigned int>(iphdr->ip_id, udp->uh_sport));
-		}
-		
-		/*
-		if(big_udp_flag==2){
-			nit.ue_port = 0xc413;
-		    nit.out_port = 0xc413;
-			/*
-			udp->uh_sport = 0xc413;
-			udp->uh_dport = 0xc413;
+		if (ntohs(iphdr->ip_off)==IP_DF || ntohs(iphdr->ip_off)==IP_MF || iphdr->ip_off==0)
+		{
 			memcpy(&nit.ue_port,&udp->uh_sport,2);
 			memcpy(&nit.out_port,&udp->uh_dport,2);
+			LINE_TRACE(); 
+			TestMsg_TRACE("nit.ue_port=0x%x (%d), nit.out_port=0x%x (%d)\n", nit.ue_port, nit.ue_port, nit.out_port, nit.out_port);
+			m_s1u_udp_port.insert(std::pair<short unsigned int, short unsigned int>(iphdr->ip_id, udp->uh_sport));
+		}
+		else
+		{
+			std::map<short unsigned int,short unsigned int>::iterator ipo = m_s1u_udp_port.find(iphdr->ip_id);
+			memcpy(&nit.ue_port,&ipo->second,2);
+			big_udp_flag = 1;
+		}
 
-		}*/
-		
-		
-		if (ntohs(iphdr->ip_off) & 0x00b9){
-				printf("Flags:00b9\n");
-				std::map<short unsigned int,short unsigned int>::iterator ipo = m_s1u_udp_port.find(iphdr->ip_id);
-				//memcpy(&nit.ue_port,ipo->second,2);
-				memcpy(&nit.out_port,&ipo->second,2);
-				//out_ip_port += ipo->second;
-				big_udp_flag+=1;
-			}
-		
-		else{
-			memcpy(&nit.ue_port,&udp->uh_sport,2);
-			memcpy(&nit.out_port,&udp->uh_dport,2);
-		}
 	}
-	else{
+	else
+	{
 		printf("warning: s1u get unsupported L4 protocol %d\n",iphdr->ip_p);
 	}
-	nit.time_stamp = time(NULL);
-	
-	// make key of map "m_out_ip_port_to_s1u_enb_fteid" (see spgw.h for what it works)
-	uint64_t out_ip_port = nit.out_ipv4;
-	out_ip_port <<= 32;
-	if(nit.proto == IPPROTO_TCP){
-		out_ip_port += NAT_IPPROTO_TCP_OFFSET;
-		out_ip_port += nit.out_port;
-	}
-	else if(nit.proto == IPPROTO_UDP){
-		out_ip_port += NAT_IPPROTO_UDP_OFFSET;
-		out_ip_port += nit.out_port;
-	}
-	else{
-		out_ip_port += nit.proto;
-	}
-	/* one part of the main concept of my NAT, didn't tested
-	do{
-		auto iter = m_out_ip_port_to_s1u_enb_fteid.find(out_ip_port);
-		if(iter!=m_out_ip_port_to_s1u_enb_fteid.end()){
-			out_ip_port += NAT_IPPROTO_GAP;
-		}
-	}while(1);
-	*/
+
 
 	// find tunnel ctx by s1u_sgw_fteid to get s1u_enb_fteid (recorded in tunnel ctx)
 	std::map<uint32_t,uint32_t>::iterator iter = m_s1u_sgw_fteid_to_s11_sgw_fteid.find(s1u_sgw_fteid);
@@ -326,46 +240,96 @@ void spgw::manage_s1u_pdu(uint8_t* msg,sockaddr_in* sin,int* len){
 	printf("kk_flag: %d\n",big_udp_flag);
 	if(iter == m_s1u_sgw_fteid_to_s11_sgw_fteid.end()){
 		printf("spgw: can't find s11_sgw_fteid by s1u_sgw_fteid\n");
-		return;
+		RETURN;
 	}
 	std::map<uint32_t,tunnel_ctx_t>::iterator jter = m_s11_sgw_fteid_to_tunnel_ctx.find(iter->second);
 	if(jter == m_s11_sgw_fteid_to_tunnel_ctx.end()){
 		printf("spgw: can't find tunnel_ctx by s11_sgw_fteid\n");
-		return;
+		RETURN;
 	}
-	// insert s11_sgw_fteid to map to make finding easy
-	m_out_ip_port_to_s11_sgw_fteid.insert(std::pair<uint64_t,uint32_t>(out_ip_port,jter->second.s11_sgw_fteid));
-	jter->second.vec_nit.push_back(nit);
+
+
+
+	// set external ip and port
+	nit.pgw_ipv4 = this_ip.s_addr;
+	nit.pgw_port = nit.ue_port + (uint16_t)(jter->second.s11_sgw_fteid >> 15);
+	TestMsg_TRACE("nit.pgw_port=%04x, nit.ue_port=%04x, s11_sgw_fteid=%04x, %d @ %s\n", nit.pgw_port, nit.ue_port, (uint16_t)(jter->second.s11_sgw_fteid >> 15), __LINE__, __FILE__);
+
+	TestMsg_TRACE("nit.ue_ipv4=0x%08x, nit.ue_port=0x%04x, nit.pgw_ipv4=0x%08x, nit.pgw_port=0x%04x, nit.out_ipv4=0x%08x, nit.out_port=0x%04x, %d @ %s\n", 
+		ntohl(nit.ue_ipv4),
+		ntohs(nit.ue_port), 
+		ntohl(nit.pgw_ipv4),
+		ntohs(nit.pgw_port), 
+		ntohl(nit.out_ipv4),
+		ntohs(nit.out_port),
+		__LINE__, __FILE__);
 
 	// Change Sockaddr
 	sin->sin_family = AF_INET;
 	sin->sin_port = nit.out_port;
 	sin->sin_addr.s_addr = nit.out_ipv4;
-	
-		
-	// Change IP Layer Header
-	iphdr->ip_src = this_ip;
-	
-	
-	//printf("IP checksum: %5u\n",ntohs(iphdr->ip_sum));
-	iphdr->ip_sum = modify_checksum(iphdr->ip_sum,nit.ue_ipv4,this_ip.s_addr);
-	//printf("IP modify checksum: %5u\n",ntohs(iphdr->ip_sum));
-	
+
+
+	iphdr->ip_src.s_addr = nit.pgw_ipv4;
+	iphdr->ip_sum = modify_checksum(iphdr->ip_sum,nit.ue_ipv4,nit.pgw_ipv4);
+
+	if(big_udp_flag)	{RETURN;}
+
+	LINE_TRACE();
 	// Change Transport Layer Header
 	if(iphdr->ip_p==IPPROTO_TCP){
-		tcp->th_sum = modify_checksum(tcp->th_sum,nit.ue_ipv4,this_ip.s_addr);
+		
+		tcp->th_sport = nit.pgw_port;
+		tcp->th_sum = modify_port_checksum(tcp->th_sum, nit.ue_ipv4, nit.pgw_ipv4, nit.ue_port, nit.pgw_port);
 	}
 
 	else if(iphdr->ip_p==IPPROTO_UDP){
 		printf("UDP checksum: %5u\n",ntohs(udp->uh_sum));
 		if(big_udp_flag!=1){
-			udp->uh_sum = modify_checksum(udp->uh_sum,nit.ue_ipv4,this_ip.s_addr);
+			udp->uh_sport = nit.pgw_port;
+			udp->uh_sum = modify_port_checksum(udp->uh_sum, nit.ue_ipv4, nit.pgw_ipv4, nit.ue_port, nit.pgw_port);
 		}
 		else
 			printf("UDP not modify checksum\n");
 		printf("UDP modify checksum: %5u\n",ntohs(udp->uh_sum));
 	}
 
+	// make key of map "m_out_ip_port_to_s1u_enb_fteid" (see spgw.h for what it works)
+	uint64_t out_ip_port = this_ip.s_addr;
+	out_ip_port <<= 32;
+	if(nit.proto == IPPROTO_TCP){
+		out_ip_port += NAT_IPPROTO_TCP_OFFSET;
+		// out_ip_port += nit.out_port;
+		out_ip_port += nit.pgw_port;
+	}
+	else if(nit.proto == IPPROTO_UDP){
+		out_ip_port += NAT_IPPROTO_UDP_OFFSET;
+		// out_ip_port += nit.out_port;
+		out_ip_port += nit.pgw_port;
+	}
+	else{
+		out_ip_port += nit.proto;
+	}
+	
+	if( iphdr->ip_p==IPPROTO_UDP && nit.ue_port==htons(5060))
+	{
+		TestMsg_TRACE("\033[1;35m manage_s1u_pdu, out_ip_port = %016lx\033[0m, %d @ %s\n", out_ip_port, __LINE__, __FILE__);
+	}
+
+	// insert s11_sgw_fteid to map to make finding easy
+	std::map<uint64_t,uint32_t>::iterator itt = m_out_ip_port_to_s11_sgw_fteid.find(out_ip_port);
+	if (itt != m_out_ip_port_to_s11_sgw_fteid.end())	m_out_ip_port_to_s11_sgw_fteid.erase(itt);
+	m_out_ip_port_to_s11_sgw_fteid.insert(std::pair<uint64_t,uint32_t>(out_ip_port,jter->second.s11_sgw_fteid));
+	
+	// for (std::map<uint64_t,uint32_t>::iterator itt=m_out_ip_port_to_s11_sgw_fteid.begin(); itt!=m_out_ip_port_to_s11_sgw_fteid.end(); ++itt)	printf("manage_s1u_pdu - m_out_ip_port_to_s11_sgw_fteid => %016lx --> %08x\n", itt->first, htonl(itt->second));
+
+	// insert nat_information to map to make finding easy
+	std::map<uint64_t,nat_information_t>::iterator itn = m_out_ip_port_to_nat_info.find(out_ip_port);
+	if (itn != m_out_ip_port_to_nat_info.end())	m_out_ip_port_to_nat_info.erase(itn);
+	m_out_ip_port_to_nat_info.insert(std::pair<uint64_t,nat_information_t>(out_ip_port, nit));
+	
+
+	RETURN;
 }
 void spgw::manage_sgi_write_gtp_header(uint8_t* msg,short len,uint32_t s1u_enb_fteid){
 	msg[0] = 0x30; //GTPv1
@@ -376,78 +340,108 @@ void spgw::manage_sgi_write_gtp_header(uint8_t* msg,short len,uint32_t s1u_enb_f
 void spgw::manage_sgi_pdu(uint8_t* msg){
 	ip* iphdr = (ip*)&msg[14];
 	int b_flag=0;
-	if(!memcmp(&iphdr->ip_dst,&m_sgi_addr.sin_addr,4)){
-		printf("sgi_input: iphdr=%s Flag:%x\n",inet_ntoa(iphdr->ip_dst),ntohs(iphdr->ip_off));
+	if(!memcmp(&iphdr->ip_dst,&m_sgi_addr.sin_addr,4))
+	{
+		printf("\n\n\n--- sgi input: iphdr=%s Flag:%x-----------------------------------------\n",inet_ntoa(iphdr->ip_dst),ntohs(iphdr->ip_off));
+		LINE_TRACE();
 				
 		tcphdr* tcp;
 		udphdr* udp;
 
-		// make out_ip_port
-		uint64_t out_ip_port = iphdr->ip_src.s_addr;
+		uint64_t out_ip_port = iphdr->ip_dst.s_addr;
 		out_ip_port<<=32;
 		if(iphdr->ip_p == IPPROTO_TCP){
+			LINE_TRACE();
 			tcp = (tcphdr*) &msg[14+sizeof(ip)];
 			out_ip_port += NAT_IPPROTO_TCP_OFFSET;
-			out_ip_port += tcp->th_sport;
+			out_ip_port += tcp->th_dport;
 		}
 		else if(iphdr->ip_p == IPPROTO_UDP){
+			LINE_TRACE();
+			printf("Flags: 0x%04x\n", ntohs(iphdr->ip_off));
 			udp = (udphdr*) &msg[14+sizeof(ip)];
-			
-			if (ntohs(iphdr->ip_off) & 0x2000){
-				printf("Flags:2000\n");
-				m_sgi_udp_port.insert(std::pair<short unsigned int, short unsigned int>(iphdr->ip_id, udp->uh_sport));
+
+			if (ntohs(iphdr->ip_off)==IP_DF || ntohs(iphdr->ip_off)==IP_MF || iphdr->ip_off==0)
+			{
+				LINE_TRACE();
+				out_ip_port += udp->uh_dport;
+				m_sgi_udp_port.insert(std::pair<short unsigned int, short unsigned int>(iphdr->ip_id, udp->uh_dport));
 			}
-			
-			out_ip_port += NAT_IPPROTO_UDP_OFFSET;
-			if (ntohs(iphdr->ip_off) & 0x00b9){
-				printf("Flags:00b9\n");
+			else
+			{
+				LINE_TRACE();
 				std::map<short unsigned int,short unsigned int>::iterator ipo = m_sgi_udp_port.find(iphdr->ip_id);
 				out_ip_port += ipo->second;
 				b_flag+=1;
 			}
-			else
-				out_ip_port += udp->uh_sport;
+			out_ip_port += NAT_IPPROTO_UDP_OFFSET;
 		}
-		else{
+		else
+		{
+			LINE_TRACE();
 			out_ip_port += iphdr->ip_p;
 		}
-		printf("now out_port:%016lx\n",out_ip_port);
+		if(iphdr->ip_p == IPPROTO_UDP)
+		{
+			if (udp->uh_dport==htons(5060))
+				TestMsg_TRACE("\033[1;35m manage_sgi_pdu, out_ip_port = %016lx\033[0m, %d @ %s\n", out_ip_port, __LINE__, __FILE__);
+		}
 		// do search
 		std::map<uint64_t,uint32_t>::iterator it = m_out_ip_port_to_s11_sgw_fteid.find(out_ip_port);
-		if(it == m_out_ip_port_to_s11_sgw_fteid.end()) {printf("sgi pdu no out_ip_port:%016lx\n",out_ip_port);return;}
+		if(it == m_out_ip_port_to_s11_sgw_fteid.end()) {printf("sgi pdu no out_ip_port:%016lx\n",out_ip_port);RETURN;}
 
 		std::map<uint32_t,tunnel_ctx_t>::iterator jt = m_s11_sgw_fteid_to_tunnel_ctx.find(it->second);
-		if(jt == m_s11_sgw_fteid_to_tunnel_ctx.end()) {printf("sgi pdu no tunnel_ctx\n"); return;}
+		if(jt == m_s11_sgw_fteid_to_tunnel_ctx.end()) {printf("sgi pdu no tunnel_ctx\n"); RETURN;}
+		tunnel_ctx_t *pni = &jt->second;
 
-		if(jt->second.vec_nit.empty()) {printf("vec_nit is empty\n"); return;}
+		std::map<uint64_t,nat_information_t>::iterator itn = m_out_ip_port_to_nat_info.find(out_ip_port);
+		if (itn == m_out_ip_port_to_nat_info.end())	{printf("m_out_ip_port_to_nat_info has no the out_ip_port=%016lx\n", out_ip_port); RETURN;}
+		nat_information_t	nit = itn->second;
+
+		TestMsg_TRACE("nit.ue_ipv4=0x%08x, nit.ue_port=0x%04x, nit.pgw_ipv4=0x%08x, nit.pgw_port=0x%04x, nit.out_ipv4=0x%08x, nit.out_port=0x%04x, %d @ %s\n", 
+			ntohl(nit.ue_ipv4),
+			ntohs(nit.ue_port), 
+			ntohl(nit.pgw_ipv4),
+			ntohs(nit.pgw_port), 
+			ntohl(nit.out_ipv4),
+			ntohs(nit.out_port),
+			__LINE__, __FILE__);
 
 		// FIXME: Use all elements in vec_nit instead of only the first one
 		// change L7(TCP/UDP) checksum
 		if(iphdr->ip_p==IPPROTO_TCP){
-			tcp->th_sum = modify_checksum(tcp->th_sum,iphdr->ip_dst.s_addr,jt->second.vec_nit.at(0).ue_ipv4);
+			LINE_TRACE();
+			tcp->th_dport = nit.ue_port;
+			tcp->th_sum = modify_port_checksum(tcp->th_sum, iphdr->ip_dst.s_addr, nit.ue_ipv4, nit.pgw_port, nit.ue_port);
 		}
 		else if(iphdr->ip_p==IPPROTO_UDP){
+			LINE_TRACE();
 			if(b_flag!=1)
-				udp->uh_sum = modify_checksum(udp->uh_sum,iphdr->ip_dst.s_addr,jt->second.vec_nit.at(0).ue_ipv4);
+			{
+				udp->uh_dport = nit.ue_port;
+				udp->uh_sum = modify_port_checksum(udp->uh_sum, iphdr->ip_dst.s_addr, nit.ue_ipv4, nit.pgw_port, nit.ue_port);
+			}
 		}
 
 		// change L6(IP) checksum/dst_ip
-		iphdr->ip_sum = modify_checksum(iphdr->ip_sum,iphdr->ip_dst.s_addr,jt->second.vec_nit.at(0).ue_ipv4);
-		iphdr->ip_dst.s_addr = jt->second.vec_nit.at(0).ue_ipv4;
+		iphdr->ip_sum = modify_checksum(iphdr->ip_sum,iphdr->ip_dst.s_addr,nit.ue_ipv4);
+		iphdr->ip_dst.s_addr = nit.ue_ipv4;
 
 		// write L5(GTP) header
-		manage_sgi_write_gtp_header(&msg[6],iphdr->ip_len,jt->second.s1u_enb_fteid);
+		TestMsg_TRACE("\033[1;35m s1u_enb_fteid, s11_sgw_fteid=%08x, s1u_enb_fteid = %08x\033[0m, %d @ %s\n", htonl(it->second), htonl(jt->second.s1u_enb_fteid), __LINE__, __FILE__);
+		// for (std::map<uint64_t,uint32_t>::iterator itt=m_out_ip_port_to_s11_sgw_fteid.begin(); itt!=m_out_ip_port_to_s11_sgw_fteid.end(); ++itt)	printf("manage_sgi_pdu - m_out_ip_port_to_s11_sgw_fteid => %016lx --> %08x\n", itt->first, htonl(itt->second));
+		manage_sgi_write_gtp_header(&msg[6],iphdr->ip_len,pni->s1u_enb_fteid);
 
 		// send out (L3/L4 information)
 		sockaddr_in sin;
 		sin.sin_family = AF_INET;
 		sin.sin_port = htons(2152);
-		sin.sin_addr.s_addr = jt->second.enb_ipv4;
+		sin.sin_addr.s_addr = pni->enb_ipv4;
 		printf("sgi_send_to_s1u_sin:%s\n",inet_ntoa(sin.sin_addr));
 		
 		sendto(m_s1u_soc,&msg[6],htons(iphdr->ip_len)+8,0,(sockaddr*)&sin,sizeof(sockaddr));
+		RETURN;
 	}
-	return;
 }
 void spgw::run(){
 	pthread_t pid;
@@ -481,7 +475,7 @@ void spgw::run(){
 				if(msg[1]==0x01){
 					msg[1]=0x02;
 					msg[3]=0x06;
-					msg[10]=0x00;
+					msg[10]=0x00; 
 					msg[11]=0x00;
 					msg[12]=0x0e;
 					msg[13]=0x00;
@@ -508,6 +502,17 @@ void spgw::run(){
 						}
 						printf("##################################\n");
 					}*/
+					ip* iphdr = (ip*)&msg[GTPV1_LEN]; 
+					if (iphdr->ip_p==IPPROTO_UDP && (ntohs(iphdr->ip_off)==IP_MF || ntohs(iphdr->ip_off)==IP_DF || iphdr->ip_off==0))
+					{
+						udphdr* udp = (udphdr*)&msg[GTPV1_LEN+sizeof(ip)];
+						if (ntohs(udp->uh_dport)==5060)
+						{
+							char print_data[51];
+							memcpy(print_data, &msg[GTPV1_LEN+sizeof(ip)+sizeof(udphdr)], 50); print_data[51]=0;
+							printf("\033[1;33m recv s1u data:\n%s\033[0m\n\n", print_data);
+						}
+					}
 					manage_s1u_pdu(msg,&src_addrin,&s1ulen);
 					
 					/*
@@ -575,6 +580,18 @@ void spgw::run(){
 				
 			if(FD_ISSET(m_sgi_rx_soc,&set)){	//轉送 將SGi介面收到的封包轉送至s1u介面
 				len=recvfrom(m_sgi_rx_soc,&msg[0],3999,0,(sockaddr*)&src_addrll,&addrlen);
+
+				ip* iphdr = (ip*)&msg[14]; 
+				if (iphdr->ip_p==IPPROTO_UDP && (ntohs(iphdr->ip_off)==IP_MF || ntohs(iphdr->ip_off)==IP_DF || iphdr->ip_off==0))
+				{
+					udphdr* udp = (udphdr*)&msg[14+sizeof(ip)];
+					if (ntohs(udp->uh_sport)==5060)
+					{
+						char print_data[51];
+						memcpy(print_data, &msg[14+sizeof(ip)+sizeof(udphdr)], 50); print_data[51]=0;
+						printf("\033[1;33m recv sgi data:\n%s\033[0m\n\n", print_data);
+					}
+				}
 				
 				if(len==1514){
 					printf("\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");

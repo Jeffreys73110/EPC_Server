@@ -4,6 +4,8 @@
 #include "s1ap_common.h"
 #include "s1ap.h"
 #include <pthread.h>
+#include <stdio.h>
+#include <string.h>
 class mme{
 private:
 	static mme* m_instance;
@@ -13,7 +15,7 @@ public:
 	static mme* get_instance();
         // MME functions
     void 	init();
-	void	run(int,int);
+	void	run(int&,int);
 	void*	sctp_recv(int ,struct msghdr*,void*,uint32_t*,int*,uint32_t);
 };
 #endif

@@ -6,6 +6,7 @@
 #include <time.h>
 #include <map>
 #include <vector>
+#include "config.h"
 #include "s1ap_common.h"
 
 #define GTPV1_LEN 8
@@ -18,11 +19,13 @@
 #define NAT_IPPROTO_GAP 131072
 
 struct nat_information_t{
-	uint32_t ue_ipv4;
-	uint32_t out_ipv4;
+	uint32_t ue_ipv4;	// internal local ip
+	uint16_t ue_port;	// internal local port
+	uint32_t pgw_ipv4;	// external local ip
+	uint16_t pgw_port;	// external local port
 
-	uint16_t ue_port;
-	uint16_t out_port;
+	uint32_t out_ipv4;	// remote ip
+	uint16_t out_port;	// remote port
 
 	uint8_t proto;
 	time_t time_stamp;
@@ -37,8 +40,8 @@ struct tunnel_ctx_t{
 	clock_t time;
 	int next_sec;
 	bool start;
-	
-	std::vector<nat_information_t> vec_nit;
+
+	// std::vector<nat_information_t> m_vec_nit;	
 };
 class spgw{
 private:
@@ -50,9 +53,11 @@ private:
 
 	// because sgi package is much more than s11, maybe this can be changed to out_ip_port to optimize
 	std::map<uint32_t,tunnel_ctx_t> m_s11_sgw_fteid_to_tunnel_ctx;
+	std::map<uint64_t,nat_information_t> m_out_ip_port_to_nat_info;
 	
 	//Deal with the big udp packet
 	std::map<short unsigned int,short unsigned int> m_s1u_udp_port;
+	// std::map<u_short,uint64_t> m_s1u_udp_port;
 	std::map<short unsigned int,short unsigned int> m_sgi_udp_port;
 
 	uint32_t m_s1u_sgw_fteid;

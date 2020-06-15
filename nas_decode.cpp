@@ -66,7 +66,7 @@ void nas_decode::decode_eps_mobile_id(uint8_t* msg,NAS_EPS_MOBILE_ID_STRUCT* re,
 	re->type=type;
 
 	*len=msg[0];
-
+	
 	// IMSI
 	if(type==1){
 		if(is_odd){
@@ -405,7 +405,7 @@ void nas_decode::decode_UplinkNASTransportMessage_nas_pdu(uint8_t* msg,UPLINK_NA
 	int pos=decode_message_type_pos(&msg[1],&header,&pd);
 	nas->request_type=msg[pos+1];
 	
-	printf("Receive Message type : ");
+	printf("Receive Message type : \n");
 	//Identity Response
 	if(nas->request_type==0x56){
 		printf("Identity Response");

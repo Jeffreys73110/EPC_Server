@@ -9,6 +9,7 @@ uint8_t c2u(char);
 void c2u(uint8_t*,char*,int);
 uint32_t modify_checksum_add(uint16_t cs,uint32_t a);
 uint16_t modify_checksum(uint16_t ori_cs,uint32_t ori_ip,uint32_t new_ip);
+uint16_t modify_port_checksum(uint16_t ori_cs, uint32_t ori_ip, uint32_t new_ip, uint16_t ori_port,uint16_t new_port);
 /* eNodeB should not be put here but maybe lte_common.h or other */
 enum eNodeB_state{
         ENODEB_UNREGISTERED,
@@ -82,15 +83,42 @@ struct ue_erab_ctx_t{
 	uint32_t s1u_sgw_fteid;
 	uint32_t s1u_ipv4;
 	uint32_t pdn_ipv4;
+	uint32_t ims_ipv4;
 };
+struct packet_filter_t
+{
+	uint8_t		direction;	// 1:downlink, 2:uplink, 3:bi-directional
+	uint32_t 	remote_ip;
+	uint32_t 	remote_ip_mask;
+	uint8_t		protocol;	// IP protocol numbers of IP header as directed by RFC 790
+	uint16_t 	LPort;
+	uint16_t 	RPort;
+};
+
+struct traffic_flow_template_t
+{
+#define	TFT_PK_NUM	4
+	int	filter_num;
+	packet_filter_t filter[TFT_PK_NUM];
+	uint8_t	imsi[15];
+
+	traffic_flow_template_t()
+	{
+		memset(this, 0, sizeof(traffic_flow_template_t));
+		filter_num = TFT_PK_NUM;
+	}
+};
+
+#define	UE_eRAB_Ctx_SIZE	15
 struct ue_ctx_t{
 	NAS_INITIAL_UE_MESSAGE_STRUCT prop;
 	uint32_t	eNB_UE_ID;
 	uint32_t	MME_UE_ID;
 	ue_state_t	state;
 	ue_sec_ctx_t	sec;
-	ue_erab_ctx_t	erab[15];
+	ue_erab_ctx_t	erab[UE_eRAB_Ctx_SIZE];
 	uint8_t UERadioCapability_ctx_t[300];
+	traffic_flow_template_t	erab_tft;
 	void init();
 };
 struct NEXT_MESSAGE_STRUCT{

@@ -29,6 +29,15 @@ struct NAS_EPS_MOBILE_ID_STRUCT{
 	uint8_t imsi[15];
 	uint8_t imei[15];
 	uint8_t type;
+	
+	/* Type of identity (octet 3) 
+	3 2 1
+	0 0 1 IMSI
+	0 1 0 IMEI
+	0 1 1 IMEISV
+	1 0 0 TMSI/P-TMSI/M-TMSI
+	1 0 1 TMGI and optional MB
+	0 0 0 No Identity (note 1) 	*/
 };
 struct NAS_NAS_KEY_SET_ID_STRUCT{
 	bool tsc;
@@ -112,7 +121,8 @@ struct NAS_ATTACH_REQUEST_STRUCT{
 	NAS_MS_CLASSMARK2_STRUCT			ms_cm2;
 	NAS_PDN_CONNECTIVITY_REQUEST_STRUCT		pdn_con_request;
 	NAS_MS_NETWORK_CAPABILITY_VALUE_STRUCT		ms_net_cap;
-	char 						apn_name[40];//max:102
+	// char 						apn_name[40];//max:102
+	char						apn_name[102];
 	uint32_t					apn_len;
 	bool 						ms_net_cap_present;
 	bool						guti_type;

@@ -8,7 +8,7 @@ TEST_OBJ = ${DIR_BUILD}/s1ap_decode.o ${DIR_BUILD}/s1ap_encode.o \
        ${DIR_BUILD}/mme.o ${DIR_BUILD}/f1.o \
        ${DIR_BUILD}/sha256.o ${DIR_BUILD}/snow_3g.o ${DIR_BUILD}/test.o
 
-test : dir ${TEST_OBJ}
+test : clean dir ${TEST_OBJ}
 	g++ ${TEST_OBJ} -o ./a.out -lpthread
 dir :
 	mkdir -p build
@@ -43,4 +43,4 @@ ${DIR_BUILD}/snow_3g.o : ${DIR_SEC_AUT}/snow_3g.cpp ${DIR_SEC_AUT}/snow_3g.h
 
 
 clean:
-	rm ${DIR_BUILD}/*.o ./a.out
+	-rm ${DIR_BUILD}/*.o ./a.out

@@ -10,17 +10,65 @@ s1ap* s1ap::m_instance=NULL;
 pthread_mutex_t s1ap_instance_mutex=PTHREAD_MUTEX_INITIALIZER;
 
 s1ap::s1ap(){
-
+	eRabSetup_dedicated_flag = false;
+	memset(ue_list, 0, sizeof(ue_list));
+	ue_List_num = 0;
 }
-/*enb_ctx_t* s1ap::add_new_enb_ctx_t(){
-	//TODO: new enb
-	if(enb_list==NULL) enb_list = new enb_ctx_t();
-	return enb_list;
-}*/
 ue_ctx_t* s1ap::add_new_ue_ctx_t(){
+	LINE_TRACE();
 	//TODO: new ue
-	if(ue_list==NULL) ue_list = new ue_ctx_t();
-	return ue_list;
+
+	int cur;
+	for (cur=0; cur<UE_LIST_SIZE; cur++)
+	{
+		if (ue_list[cur]==NULL) 
+		{
+			LINE_TRACE();
+			if (ue_list[cur] = new ue_ctx_t())
+				ue_List_num++;
+			TestMsg_TRACE("ue_list[%d]=0x%x\n", cur, ue_list[cur]);
+			break;
+		}
+	}
+	if (cur >= UE_LIST_SIZE)	{ RETURN NULL; }
+	RETURN ue_list[cur];
+}
+int s1ap::delete_ue_ctx_t(uint32_t mme_ue_s1ap_id)
+{
+	LINE_TRACE();
+	ue_ctx_t* ue = find_ue_by_mme_ue_s1ap_id(mme_ue_s1ap_id);
+	if (!ue)	{RETURN -1;}
+	for (int cur=0; cur<UE_LIST_SIZE; cur++)
+	{
+		if (ue_list[cur]==ue) 
+		{
+			delete ue_list[cur];
+			ue_list[cur] = NULL;
+			TestMsg_TRACE("\033[1;31mdelete ue_list[%d]=0x%x\033[0m\n", cur, ue_list[cur]);
+			break;
+		}
+	}
+	RETURN 0;
+}
+int s1ap::show_ue_ctx_t()
+{
+	LINE_TRACE();
+	//TODO: new ue
+
+	int cur;
+	for (cur=0; cur<UE_LIST_SIZE; cur++)
+	{
+		if (ue_list[cur]) 
+		{
+			TestMsg_TRACE("show_ue_ctx_t, ue_List_num=%d, ue_list[%d]=0x%x, ue_list->imsi=%s, ue_list->MME_UE_ID=0x%08x\n", 
+				ue_List_num,
+				cur, ue_list[cur], 
+				GetBinaryToHexStr(ue_list[cur]->prop.msg_type.ar.eps_mobile_id.imsi, sizeof(NAS_EPS_MOBILE_ID_STRUCT::imsi)),
+				ue_list[cur]->MME_UE_ID
+			); 
+		}
+	}
+	RETURN 0;
 }
 s1ap* s1ap::get_instance(){
 	pthread_mutex_lock(&s1ap_instance_mutex);
@@ -31,11 +79,63 @@ s1ap* s1ap::get_instance(){
 	return m_instance;
 }
 ue_ctx_t* s1ap::find_ue_by_mme_ue_s1ap_id(uint32_t mme_ue_s1ap_id){
+	LINE_TRACE();
 	//TODO: find by mme_ue_s1ap_id
-	return ue_list;
+	int cur;
+	for (cur=0; cur<UE_LIST_SIZE; cur++)
+	{
+		if (ue_list[cur])	
+		{ 
+			TestMsg_TRACE("find_ue_by_mme_ue_s1ap_id, ue_list[%d]=0x%x, ue_list->imsi=%s, ue_list->MME_UE_ID=0x%08x <--> mme_ue_s1ap_id=0x%08x\n", 
+			cur, ue_list[cur], 
+			GetBinaryToHexStr(ue_list[cur]->prop.msg_type.ar.eps_mobile_id.imsi, sizeof(NAS_EPS_MOBILE_ID_STRUCT::imsi)),
+			ue_list[cur]->MME_UE_ID, 
+			mme_ue_s1ap_id); 
+			if (ue_list[cur]->MME_UE_ID==mme_ue_s1ap_id)	break;
+		}
+	}
+	if (cur >= UE_LIST_SIZE)	{ RETURN NULL; }
+	RETURN ue_list[cur];
+}
+ue_ctx_t* s1ap::find_ue_by_imsi(uint8_t *imsi){
+	LINE_TRACE();
+	//TODO: find by mme_ue_s1ap_id
+	int cur;
+	NAS_EPS_MOBILE_ID_STRUCT	*id;
+	char szmobile_type[20];
+	for (cur=0; cur<UE_LIST_SIZE; cur++)
+	{
+		if (ue_list[cur])
+		{	
+			// temp_ue->prop.msg_type.ar.eps_mobile_id
+			id = &ue_list[cur]->prop.msg_type.ar.eps_mobile_id;
+			if (id->type==1)	strcpy(szmobile_type, "IMSI");
+			else if (id->type==2)	strcpy(szmobile_type, "IMＥＩ");
+			else if (id->type==3)	strcpy(szmobile_type, "IMEISV");
+			else if (id->type==4)	strcpy(szmobile_type, "TMSI/P-TMSI/M-TMSI");
+			else if (id->type==5)	strcpy(szmobile_type, "TMGI and optional MB");
+			else if (id->type==0)	strcpy(szmobile_type, "No Identity (note 1) ");
+
+			TestMsg_TRACE("find_ue_by_imsi, ue_list[%d]=0x%x, MME_UE_ID=0x%08x, mobile_type=%d, id->imsi=%s, imsi=%s, %d @ %s\n", 
+				cur, ue_list[cur], 
+				ue_list[cur]->MME_UE_ID,
+				id->type, 
+				GetBinaryToHexStr(id->imsi, sizeof(id->imsi)),
+				GetBinaryToHexStr(imsi, sizeof(id->imsi)),
+				__LINE__, __FILE__
+			); 
+
+			if (id->type==1)
+			{
+				if (!memcmp(id->imsi, imsi, sizeof(id->imsi)))	break;
+			}
+		}
+	}
+	if (cur >= UE_LIST_SIZE)	{RETURN NULL;}
+	RETURN ue_list[cur];
 }
 int s1ap::get_next_mme_ue_id(){
-	return m_mme_ue_s1ap_id++;
+	RETURN m_mme_ue_s1ap_id++;
 }
 int s1ap::get_next_ctrl_fteid(){
 	return m_mme_global_ctrl_fteid++;
@@ -51,7 +151,7 @@ uint32_t s1ap::get_spgw_addr_ipv4(){
 	return m_spgw_addr_ipv4;
 }
 uint32_t s1ap::get_next_pdn_ipv4(){
-	return m_ue_ipv4++;
+	return m_ue_ipv4+=htonl(1);
 }
 int s1ap::find_eNB_by_IP(char* IP){
 	int i;
@@ -72,9 +172,9 @@ void s1ap::init(){
 //TODO: set more things to next_guti
 	eNB_NUM=0;
 	m_next_guti.m_tmsi = 0x5a3148ce;
-	m_mme_ue_s1ap_id = 3410577134;
-	m_ue_ipv4 = inet_addr("192.168.200.1");
-	m_spgw_addr_ipv4=inet_addr("10.102.81.102");
+	m_mme_ue_s1ap_id = 3410577100;
+	m_ue_ipv4 = inet_addr(PDN_IPv4_BEGIN);
+	m_spgw_addr_ipv4=inet_addr(SGW_IP);
 	m_spgw = spgw::get_instance();
 	//m_spgw->init();	// The init() function is already put in get_instance() function
 	m_s1ap_decode = s1ap_decode::get_instance();
@@ -117,21 +217,34 @@ int s1ap::decode_s1ap_initiating_message(char* eNB_IP,uint8_t* buf,uint8_t* send
 		printf("There's total %d eNB under MME",eNB_NUM);
 		
 		//TODO: check success/fail flag
-		return m_s1ap_encode->encode_S1Response_message(sendbuf,s1ap_args);
+		RETURN m_s1ap_encode->encode_S1Response_message(sendbuf,s1ap_args);
 	}
 
 	// Initial UE Message
 	else if(buf[0]==0x0c){
 		if(buf[1]!=0x40){printf("#error: InitialUEMessage with wrong criticalty\n"); exit(1);}
+		LINE_TRACE();
 		//ue_ctx_t temp_ue;
 		uint32_t enb_ue_id,mme_ue_id;
-		ue_ctx_t *ue = add_new_ue_ctx_t();
-		m_s1ap_decode->decode_s1ap_InitialUEMessage_message(buf+2,ue,&ue->eNB_UE_ID);
+		ue_ctx_t temp_ue;
+		ue_ctx_t *ue = NULL;
+		m_s1ap_decode->decode_s1ap_InitialUEMessage_message(buf+2, &temp_ue, &temp_ue.eNB_UE_ID);
+		if (!(ue=find_ue_by_mme_ue_s1ap_id(temp_ue.MME_UE_ID)))
+		{
+			ue = add_new_ue_ctx_t();
+			if (!ue)	{ printf("add_new_ue_ctx_t() failed, ret=0x%x, %d @ %s\n", ue, __LINE__, __FILE__); RETURN -1; }
+			else 	printf("get new ue=0x%x\n", ue);
+			memcpy(ue, &temp_ue, sizeof(ue_ctx_t));
+		}
 		printf("ue->sec.k_enb:%x %x %x\n",ue->sec.k_enb[0],ue->sec.k_enb[1],ue->sec.k_enb[2]);
 		//m_s1ap_decode->decode_s1ap_InitialUEMessage_message(buf+2,&temp_ue,&temp_ue.eNB_UE_ID);
 		//memcpy(ue,&temp_ue,sizeof(ue_ctx_t));
 
-		ue->MME_UE_ID = m_mme_ue_s1ap_id;	//return current mme_ue_s1ap_id
+		LINE_TRACE();
+		ue->MME_UE_ID = get_next_mme_ue_id();
+		TestMsg_TRACE("ue=0x%x, ue->MME_UE_ID=0x%x\n", ue, ue->MME_UE_ID);
+		
+		// ue->MME_UE_ID = m_mme_ue_s1ap_id;	//return current mme_ue_s1ap_id
 		//ue->init();
 //Delete this after debugging
 //ue->MME_UE_ID=get_next_mme_ue_id(); ue->eNB_UE_ID=1;
@@ -140,22 +253,24 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 
 		//attach request
 		if(ue->prop.request_type==0x41){
+			LINE_TRACE();
 			// GUTI
 			//TODO: not just send Identity Request but find all ue with guti
 			//ue->MME_UE_ID = get_next_mme_ue_id();
 			if(ue->prop.msg_type.ar.eps_mobile_id.type == 6){	
-				return m_s1ap_encode->encode_Identity_Request_message(sendbuf,&ue->MME_UE_ID,&ue->eNB_UE_ID);
+				RETURN m_s1ap_encode->encode_Identity_Request_message(sendbuf,&ue->MME_UE_ID,&ue->eNB_UE_ID);
 			}
 
 			// IMSI
 			else if(ue->prop.msg_type.ar.eps_mobile_id.type==1){
-				return m_s1ap_encode->encode_Authentication_Request_message(sendbuf,ue);
+				{RETURN m_s1ap_encode->encode_Authentication_Request_message(sendbuf,ue);}
 			}
 			else
-				return m_s1ap_encode->encode_Authentication_Request_message(sendbuf,ue);
+				{RETURN m_s1ap_encode->encode_Authentication_Request_message(sendbuf,ue);}
 		}
 		//service request (Reserved 0)
 		else if(ue->prop.request_type==0){
+			LINE_TRACE();
 			uint32_t s11_sgw_fteid,s1u_sgw_fteid;
 			
 			printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate Asession request\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
@@ -170,15 +285,14 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 			
 			//get_next_guti(&ue->prop.msg_type.ar.eps_mobile_id.guti);
 			
-			return m_s1ap_encode->encode_InitialContextSetupRequest_UECapabilityInformation_message(sendbuf,ue);
+			RETURN m_s1ap_encode->encode_InitialContextSetupRequest_UECapabilityInformation_message(sendbuf,ue);
 		}
-			return -1;
+			RETURN -1;
 	}
 
 	//Uplink NAS Transport
 	else if(buf[0]==0x0d){
-		
-		
+		LINE_TRACE();
 		
 		if(buf[1]!=0x40){printf("#error: UplinkNASTransport with wrong criticalty\n");}
 		uint32_t mme_ue_s1ap_id = 0;
@@ -187,20 +301,25 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 				
 		m_s1ap_decode->decode_s1ap_UplinkNASTransport_message(buf+2,&ue,&mme_ue_s1ap_id,&nas); // ue: Not used
 		ue_ctx_t* temp_ue = find_ue_by_mme_ue_s1ap_id(mme_ue_s1ap_id);
+		if (!temp_ue)	{ printf("\033[1;31mfind_ue_by_mme_ue_s1ap_id failed\033[0m], ret=0x%x, %d @ %s\n", temp_ue, __LINE__, __FILE__); RETURN -1;}
+		LINE_TRACE();
+		TestMsg_TRACE("request_type=0x%x, temp_ue=0x%x, mme_ue_s1ap_id=0x%08x, mobile_type=%d, imsi=%s\n", nas.request_type, temp_ue, mme_ue_s1ap_id, nas.prop.id.type, GetBinaryToHexStr(nas.prop.id.imsi,sizeof(nas.prop.id.imsi)));
 
 		// identity response
 		if(nas.request_type==0x56){
+			LINE_TRACE();
 //Delete this after debugging
 //temp_ue=new ue_ctx_t(); temp_ue->MME_UE_ID=get_next_mme_ue_id(); temp_ue->eNB_UE_ID=1;
 			memcpy(&temp_ue->prop.msg_type.ar.eps_mobile_id,&nas.prop.id,sizeof(temp_ue->prop.msg_type.ar.eps_mobile_id));
-			return m_s1ap_encode->encode_Authentication_Request_message(sendbuf,temp_ue);
+			RETURN m_s1ap_encode->encode_Authentication_Request_message(sendbuf,temp_ue);
 		}
 		// Authentication failure
 		if(nas.request_type==0x5c){
+			LINE_TRACE();
 			// Synch failure
 			if(nas.prop.af.emm_cause==21){
 				resync(nas.prop.af.sqn_ms_xor_ak,temp_ue->sec.rand,temp_ue->sec.sqn);
-				return m_s1ap_encode->encode_Authentication_Request_message(sendbuf,temp_ue);
+				RETURN m_s1ap_encode->encode_Authentication_Request_message(sendbuf,temp_ue);
 			}
 		}
 		// Authentication Response
@@ -214,13 +333,13 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 			temp_ue->sec.int_al = 1;
 			temp_ue->sec.enc_al = 0;
 			init_k_int_enc(temp_ue->sec.k_asme,temp_ue->sec.k_nasint,temp_ue->sec.k_nasenc,1,0);
-			return m_s1ap_encode->encode_Security_Mode_Command_message(sendbuf,temp_ue);
+			RETURN m_s1ap_encode->encode_Security_Mode_Command_message(sendbuf,temp_ue);
 		}
 		//Security Mode Complete
 		//TODO: all *if* after Security Mode Complete should check int and enc
 		if(nas.request_type==0x5e){
 			printf("dl_count: %d\n",temp_ue->sec.dl_count);
-			return m_s1ap_encode->encode_ESM_Information_Request_message(sendbuf,temp_ue);
+			RETURN m_s1ap_encode->encode_ESM_Information_Request_message(sendbuf,temp_ue);
 		}
 		//ESM Mode response
 		if(nas.request_type==0xda){
@@ -229,11 +348,11 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 			temp_ue->prop.msg_type.ar.apn_len = nas.prop.esm_info.len;
 			next_message->type = 9;
 			next_message->temp_ue = temp_ue;
-			return m_s1ap_encode->encode_EMM_Information_Request_message(sendbuf,temp_ue);
+			RETURN m_s1ap_encode->encode_EMM_Information_Request_message(sendbuf,temp_ue);
 		}
 		//Tracking Area Update Request
 		if(nas.request_type==0x48){
-			return m_s1ap_encode->encode_Tracking_Area_Update_Accept(sendbuf, temp_ue);
+			RETURN m_s1ap_encode->encode_Tracking_Area_Update_Accept(sendbuf, temp_ue);
 		}
 		//PDN connectivity request
 		if(nas.request_type==0xd0){
@@ -248,84 +367,121 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 			temp_ue->erab[6].s11_mme_fteid = next_ctrl_fteid;
 			temp_ue->erab[6].s1u_sgw_fteid = s1u_sgw_fteid;
 			temp_ue->erab[6].pdn_ipv4 = get_next_pdn_ipv4();
-			temp_ue->erab[6].pdn_ipv4 = m_ue_ipv4-1;
+			// temp_ue->erab[6].pdn_ipv4 = m_ue_ipv4-1;
 			temp_ue->erab[6].s1u_ipv4 = get_spgw_addr_ipv4();
+			temp_ue->erab[6].ims_ipv4 = inet_addr(P_CSCF_IP);
 			
 			//測試用
-			next_message->type = 8; 
+			next_message->type = 8;
 			next_message->temp_ue = temp_ue;
 			
-			return m_s1ap_encode->encode_PDN_connectivity_response(sendbuf,temp_ue);
+			RETURN m_s1ap_encode->encode_PDN_connectivity_response(sendbuf,temp_ue);
 		}
 		
 		//Extended Service reject
 		if(nas.request_type==0x4c){
+			LINE_TRACE();
 			printf("Get Extended service request\n");
-			memcpy(temp_ue->prop.msg_type.ar.apn_name,nas.prop.esm_info.apn_name,nas.prop.esm_info.len);
+			if (nas.prop.esm_info.len <= sizeof(temp_ue->prop.msg_type.ar.apn_name))
+				memcpy(temp_ue->prop.msg_type.ar.apn_name, nas.prop.esm_info.apn_name, nas.prop.esm_info.len);
+			else
+				TestMsg_TRACE("nas.prop.esm_info.len(%d) > %s\n", nas.prop.esm_info.len, sizeof(temp_ue->prop.msg_type.ar.apn_name));
+			TestMsg_TRACE("temp_ue->prop.msg_type.ar.apn_name=0x%x, %s\n", temp_ue->prop.msg_type.ar.apn_name, nas.prop.esm_info.apn_name);
+			LINE_TRACE();
 			temp_ue->prop.msg_type.ar.apn_len = nas.prop.esm_info.len;
+			LINE_TRACE();
 			//next_message->type = 8;
 			//next_message->temp_ue = temp_ue;
-			return m_s1ap_encode->encode_service_reject(sendbuf, temp_ue);
+			RETURN m_s1ap_encode->encode_service_reject(sendbuf, temp_ue);
 		}
 			
 	}
 	
 	//UEContextReleaseRequest
 	else if(buf[0]==0x12){
+		LINE_TRACE();
 		if(buf[1]!=0x40){printf("#error: UEContextReleaseRequest with wrong criticalty\n");}
 		
 		//ue_ctx_t temp_ue;
 		
 		//m_s1ap_decode->decode_s1ap_UEContextReleaseRequest_message(buf+2,&temp_ue);
+		ue_ctx_t temp_ue;
+		ue_ctx_t *ue = NULL;
+		m_s1ap_decode->decode_s1ap_UEContextReleaseRequest_message(buf+2,&temp_ue);
 		
+		if (!(ue=find_ue_by_mme_ue_s1ap_id(temp_ue.MME_UE_ID)))
+		{ printf("\033[1;31mfind_ue_by_mme_ue_s1ap_id failed\033[0m], ret=0x%x, %d @ %s\n", ue, __LINE__, __FILE__); RETURN -1;}
+		// {
+		// 	ue = add_new_ue_ctx_t();
+		// 	if (!ue)	{ printf("add_new_ue_ctx_t() failed, ret=0x%x, %d @ %s\n", ue, __LINE__, __FILE__); RETURN -1; }
+		// 	else 	printf("get new ue=0x%x\n", ue);
+		// 	memcpy(ue, &temp_ue, sizeof(ue_ctx_t));
+		// }
 		
-		ue_ctx_t *ue = add_new_ue_ctx_t();
-		m_s1ap_decode->decode_s1ap_UEContextReleaseRequest_message(buf+2,ue);
+
+
 		
 		//memcpy(ue,&temp_ue,sizeof(ue_ctx_t));
 		
 		//Fixme: find session by UE but not constant
 		//m_spgw->manage_end_session_request(m_mme_global_ctrl_fteid);
-		
-		return m_s1ap_encode->encode_UEContextReleaseCommand_message(sendbuf,ue);
+
+		int ret = m_s1ap_encode->encode_UEContextReleaseCommand_message(sendbuf,ue);
+		if (delete_ue_ctx_t(temp_ue.MME_UE_ID)<0)	{ printf("\033[1;31mdelete_ue_ctx_t failed\033[0m], %d @ %s\n", __LINE__, __FILE__); RETURN -1;}
+		RETURN ret;
 	}
 
 	
-	return -1;
+	RETURN -1;
 }
 int s1ap::decode_s1ap_successfulOutcome_message(char* eNB_IP,uint8_t* buf,uint8_t* sendbuf,NEXT_MESSAGE_STRUCT* next_message){
 	
 	
 	//InitialContextSetupResponse
 	if(buf[0]==0x09){
+		LINE_TRACE();
 		//FIXME: extract mme_ue_s1ap_id and find by it
-		uint32_t mme_ue_s1ap_id;
-		ue_ctx_t* ue = find_ue_by_mme_ue_s1ap_id(mme_ue_s1ap_id);
+		ue_ctx_t	temp_ue;
 		erab_setuplistctxtsures_t est;
-		m_s1ap_decode->decode_s1ap_InitialContextSetup_message(buf+2,&est);
+		m_s1ap_decode->decode_s1ap_InitialContextSetup_message(buf+2, &temp_ue, &est);
+		TestMsg_TRACE("ue->MME_UE_ID=0x%08x, ue->eNB_UE_ID=0x%08x\n", temp_ue.MME_UE_ID, temp_ue.eNB_UE_ID);
+		ue_ctx_t* ue = find_ue_by_mme_ue_s1ap_id(temp_ue.MME_UE_ID);
+		if (!ue)	{ printf("\033[1;31mfind_ue_by_mme_ue_s1ap_id failed\033[0m], ret=0x%x, %d @ %s\n", ue, __LINE__, __FILE__); RETURN -1;}
+		TestMsg_TRACE("ue->MME_UE_ID=0x%08x, ue->eNB_UE_ID=0x%08x\n", temp_ue.MME_UE_ID, temp_ue.eNB_UE_ID);
 		m_spgw->manage_modify_bearer_request(ue->erab[5].s11_sgw_fteid,est);
 		
 		
 		int index = find_eNB_by_IP(eNB_IP);
-		eNB_LIST[index].UE_LIST[eNB_LIST[index].UE_NUM]=mme_ue_s1ap_id;
+		eNB_LIST[index].UE_LIST[eNB_LIST[index].UE_NUM]=temp_ue.MME_UE_ID;
 		eNB_LIST[index].UE_NUM++;
 		eNB_LIST[index].print_properties();
+		LINE_TRACE();
 		
 	}
 	//E-RABSetupResponse QCI:5 & QCI:1
 	if(buf[0]==0x05){
-		uint32_t mme_ue_s1ap_id;
+		LINE_TRACE();
+		ue_ctx_t	temp_ue;
 		int ebid;
-		ue_ctx_t* ue = find_ue_by_mme_ue_s1ap_id(mme_ue_s1ap_id);
 		erab_setuplistctxtsures_t est;
-		m_s1ap_decode->decode_s1ap_ERABSetupResponse_message(buf+2,&est);
+		m_s1ap_decode->decode_s1ap_ERABSetupResponse_message(buf+2, &temp_ue, &est);
+		TestMsg_TRACE("ue->MME_UE_ID=0x%08x, ue->eNB_UE_ID=0x%08x\n", temp_ue.MME_UE_ID, temp_ue.eNB_UE_ID);
+		ue_ctx_t* ue = find_ue_by_mme_ue_s1ap_id(temp_ue.MME_UE_ID);
+		if (!ue)	{ printf("\033[1;31mfind_ue_by_mme_ue_s1ap_id failed\033[0m], ret=0x%x, %d @ %s\n", ue, __LINE__, __FILE__); RETURN -1;}
+		TestMsg_TRACE("ue->MME_UE_ID=0x%08x, ue->eNB_UE_ID=0x%08x\n", temp_ue.MME_UE_ID, temp_ue.eNB_UE_ID);
+		LINE_TRACE();
 		ebid = est.ebi;
+		LINE_TRACE();
 		m_spgw->manage_modify_bearer_request(ue->erab[ebid].s11_sgw_fteid,est);
+		LINE_TRACE();
 	}
+
+		
+
 	
 	
 	
-	return -1;
+	RETURN -1;
 }
 
 int s1ap::decode_s1ap_UnsuccessfulOutcome_message(uint8_t* buf,uint8_t* sendbuf,NEXT_MESSAGE_STRUCT* next_message){
@@ -341,7 +497,7 @@ int s1ap::decode_s1ap_UnsuccessfulOutcome_message(uint8_t* buf,uint8_t* sendbuf,
 int s1ap::handle_s1ap_pdu(char* eNB_IP,uint8_t* buf,uint8_t* sendbuf,NEXT_MESSAGE_STRUCT* next_message){
 	// FIXME: this should be packed as a function for the readability
 	if(next_message->type>0){
-
+		
 		//id InitialContextSetupRequest
 		if(next_message->type == 9){
 			//reset type
@@ -369,21 +525,36 @@ printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate session request\n@@@@@@@@@
 		//E-RABSetupRequest
 		if(next_message->type == 8){
 			next_message->type = -1;
-			
+
 			// Create Session Request, you can receive some information here
 			uint32_t s11_sgw_fteid,s1u_sgw_fteid;
 			printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate QCI 1 session request\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-			
+
 			m_spgw->manage_create_session_request(get_next_ctrl_fteid(),7,1,&s11_sgw_fteid,&s1u_sgw_fteid);
 			
 			next_message->temp_ue->erab[7].s11_sgw_fteid = s11_sgw_fteid;
 			next_message->temp_ue->erab[7].s11_mme_fteid = get_next_ctrl_fteid();
 			next_message->temp_ue->erab[7].s1u_sgw_fteid = s1u_sgw_fteid;
-			next_message->temp_ue->erab[7].pdn_ipv4 = get_next_pdn_ipv4()-2;
+			next_message->temp_ue->erab[7].pdn_ipv4 = get_next_pdn_ipv4();
 			next_message->temp_ue->erab[7].s1u_ipv4 = get_spgw_addr_ipv4();
 			
-			//sleep(1);
+			return 0;
+
+			uint8_t		caller_imsi[15], casllee_imsi[15];
+			uint32_t	caller_ip = next_message->temp_ue->erab[7].pdn_ipv4;
+			uint32_t 	callee_ip = inet_addr(P_CSCF_IP);
+			uint16_t	caller_port = htons(40006), callee_port = htons(40000);
 			
+			for (int i=0; i<next_message->temp_ue->erab_tft.filter_num; i++)
+			{
+				
+				next_message->temp_ue->erab_tft.filter[i].remote_ip = ((i%2)==0)? callee_ip:caller_ip;
+				next_message->temp_ue->erab_tft.filter[i].remote_ip_mask = 0xffffffff;
+				next_message->temp_ue->erab_tft.filter[i].LPort = (((i%2)==1)? callee_port:caller_port) + ((i>1)? 0x0100:0);
+				next_message->temp_ue->erab_tft.filter[i].RPort = (((i%2)==0)? callee_port:caller_port) + ((i>1)? 0x0100:0);
+				TestMsg_TRACE("i=%d, (i%2)=%d, LPort=%d, RPort=%d\n", i, (i%2), ntohs(next_message->temp_ue->erab_tft.filter[i].LPort), ntohs(next_message->temp_ue->erab_tft.filter[i].RPort));
+			}
+
 			return m_s1ap_encode->encode_ERABSetRequest_message(sendbuf,next_message->temp_ue,7);
 		}
 	}
@@ -406,6 +577,23 @@ printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate session request\n@@@@@@@@@
 	}
 	return -1;
 }
+
+int s1ap::encode_ERABSetRequest_qci1(uint8_t *sendbuf, traffic_flow_template_t *tft)
+{
+	LINE_TRACE();
+	if (!sendbuf)	return -1;
+
+	ue_ctx_t* temp_ue = find_ue_by_imsi(tft->imsi);
+	if (!temp_ue)	{ printf("\033[1;31mfind_ue_by_imsi failed\033[0m], ret=0x%x, %d @ %s\n", temp_ue, __LINE__, __FILE__); RETURN -1;}
+	
+	show_ue_ctx_t();
+	
+	memcpy(&temp_ue->erab_tft, tft, sizeof(temp_ue->erab_tft));
+	
+	
+	RETURN m_s1ap_encode->encode_ERABSetRequest_message(sendbuf, temp_ue, 7);
+}
+
 /*
 int main(){
 	char c[]="000d403e00000500000005c0d24495f600080002002c001a001211175741cf28060756080910101032540606006440080000f110fad11010004340060000f1100001";

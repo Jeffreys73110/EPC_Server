@@ -264,12 +264,14 @@ int s1ap_decode::decode_UEContextReleaseRequest_ProtocolIE_Field(uint8_t* buf,ue
 	return len;
 }
 //put mme_ue_s1ap_id and enb_ue_s1ap_id into this function(you can make a struct to save information)
-int s1ap_decode::decode_InitialContextSetup_ProtocolIE_Field(uint8_t* buf,erab_setuplistctxtsures_t* est){
+int s1ap_decode::decode_InitialContextSetup_ProtocolIE_Field(uint8_t* buf, ue_ctx_t* ue,erab_setuplistctxtsures_t* est){
         int IEs_ID=(buf[0]<<8)+buf[1],len=buf[3];
 		printf("IEs_ID: %d\nlen: %d\n",IEs_ID,len);
         if(IEs_ID==0){          //MME-UE-S1AP-ID
+			decode_ProtocolIE_MME_UE_S1AP_ID(buf+3,&ue->MME_UE_ID);
         }
         else if(IEs_ID==8){             //ENB-UE-S1AP-ID
+			decode_ProtocolIE_eNB_UE_S1AP_ID(buf+4,&ue->eNB_UE_ID);
         }
         else if(IEs_ID==51){            //NAS
 		//there's something strange
@@ -277,12 +279,14 @@ int s1ap_decode::decode_InitialContextSetup_ProtocolIE_Field(uint8_t* buf,erab_s
         }
         return len;
 }
-int s1ap_decode::decode_ERABSetup_ProtocolIE_Field(uint8_t* buf,erab_setuplistctxtsures_t* est){
+int s1ap_decode::decode_ERABSetup_ProtocolIE_Field(uint8_t* buf, ue_ctx_t* ue,erab_setuplistctxtsures_t* est){
         int IEs_ID=(buf[0]<<8)+buf[1],len=buf[3];
 		printf("IEs_ID: %d\nlen: %d\n",IEs_ID,len);
         if(IEs_ID==0){          //MME-UE-S1AP-ID
+			decode_ProtocolIE_MME_UE_S1AP_ID(buf+3,&ue->MME_UE_ID);
         }
         else if(IEs_ID==8){             //ENB-UE-S1AP-ID
+			decode_ProtocolIE_eNB_UE_S1AP_ID(buf+4,&ue->eNB_UE_ID);
         }
         else if(IEs_ID==28){            //NAS
 		//there's something strange
@@ -337,7 +341,7 @@ void s1ap_decode::decode_s1ap_UplinkNASTransport_message(uint8_t* buf,ue_ctx_t* 
 		jndex+=4;
 	}
 }
-void s1ap_decode::decode_s1ap_InitialContextSetup_message(uint8_t* buf,erab_setuplistctxtsures_t* est){
+void s1ap_decode::decode_s1ap_InitialContextSetup_message(uint8_t* buf, ue_ctx_t* ue, erab_setuplistctxtsures_t* est){
 printf("in initialcontext buf[0:2]:%02x%02x%02x\n",buf[0],buf[1],buf[2]);
 	int len=buf[0],ProtocolIE_Field_len=((int(buf[2]))<<8)+buf[3],index=0,jndex=0;
 	if(buf[0]==0x80){
@@ -348,16 +352,16 @@ printf("in initialcontext buf[0:2]:%02x%02x%02x\n",buf[0],buf[1],buf[2]);
 	}
 	for(index=0;index<ProtocolIE_Field_len;index++){
 	//UE not used?
-		jndex+=decode_InitialContextSetup_ProtocolIE_Field(buf+jndex+4,est);
+		jndex+=decode_InitialContextSetup_ProtocolIE_Field(buf+jndex+4, ue, est);
 		jndex+=3;
 		jndex++;
 	}
 }
-void s1ap_decode::decode_s1ap_ERABSetupResponse_message(uint8_t* buf,erab_setuplistctxtsures_t* est){
+void s1ap_decode::decode_s1ap_ERABSetupResponse_message(uint8_t* buf, ue_ctx_t* ue, erab_setuplistctxtsures_t* est){
 	int len=buf[0],ProtocolIE_Field_len=((int(buf[2]))<<8)+buf[3],index=0,jndex=0;
 	for(index=0;index<ProtocolIE_Field_len;index++){
 	//UE not used?
-		jndex+=decode_ERABSetup_ProtocolIE_Field(buf+jndex+4,est);
+		jndex+=decode_ERABSetup_ProtocolIE_Field(buf+jndex+4, ue, est);
 		jndex+=3;
 		jndex++;
 	}

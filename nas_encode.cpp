@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include <netinet/in.h>
 #include<memory.h>
 #include<pthread.h>
 #include"sec/f1.h"
@@ -317,15 +318,19 @@ int nas_encode::encode_Activate_default_EPS_bearer_context_req(uint8_t* buf,ue_c
 	
 	&buf[77] = 0x000c; //P-CSCF IPv4 Address
 	buf[79] = 0x04; //Length:4 (fixed)
-	&buf[80] = 0xc0a8076f; //Ipv4:192.168.7.111(IMS Server IP)
+	&buf[80] = 0xc0a800d2; //Ipv4:192.168.0.210(IMS Server IP)
 	&buf[84] = 0x0001; //P-CSCF Ipv6 Address
 	buf[86] = 0x10; //Length:10 (fixed)
 	&buf[87] = 0x00000000000000000000000000000000;//Ipv6: ::  (buf[102])
 	*/
 	
 	
-	char c[]="6202c101050403696d730501c0a8c80a5e0297975832274880802110030100108106c0a8076483060000000000031000000000000000000000000000000000000d04c0a80764000c04c0a8076f00011000000000000000000000000000000000";
+	char c[]=	"6202c101050403696d730501c0a8c80a5e0297975832274880802110030100108106c0a8076483060000000000031000000000000000000000000000000000000d04c0a80764000c04c0a8009400011000000000000000000000000000000000";
+
 	c2u(&buf[7],c,96);
+	
+	memcpy(&buf[19], &ue->erab[6].pdn_ipv4, sizeof(ue->erab[6].pdn_ipv4));	// PDN_IPs
+	memcpy(&buf[80], &ue->erab[6].ims_ipv4, sizeof(ue->erab[6].ims_ipv4));	// IMS_IP
 	
 	ss=do_EIA1(ue->sec.k_nasint,&buf[6],97,ue->sec.int_al,&ue->sec.dl_count);
 	memcpy(&buf[2],ss,4);
@@ -335,7 +340,7 @@ int nas_encode::encode_Activate_default_EPS_bearer_context_req(uint8_t* buf,ue_c
 } 
 
 int nas_encode::encode_Activate_default_EPS_bearer_context_req_qci1(uint8_t* buf,ue_ctx_t* ue){
-	int len=0;
+	int len=0,i;
 	uint8_t* ss;
 	buf[1] = 0x27;
 	
@@ -356,27 +361,27 @@ int nas_encode::encode_Activate_default_EPS_bearer_context_req_qci1(uint8_t* buf
 	buf[19] = 0x30; // Packet elvaluation precedence:48
 	buf[20] = 0x11; //Packetfilter length:17
 	buf[21] = 0x10; //IPv4 remote address type(16)
-	&buf[22] = 0xc0a7076e; //?? ims server
+	&buf[22] = 0xc0a800b4; //? RIP: 192.168.0.180
 	&buf[26] = 0xffffffff; //IPv4 address mask:255.255.255.255
 	buf[30] = 0x30;  //Protocol identifier/Next header type(48)
 	buf[31] = 0x11; //Protocol/header:UDP
 	buf[32] = 0X40; //Single locol port type
-	&buf[33] = 0xc35a; //??RTP Port: 50010;
+	&buf[33] = 0x9c40; //? LPort: 40000
 	buf[35] = 0x50; //Single remote port type 
-	&buf[36] = 0x9156; // Port:37206
+	&buf[36] = 0x9c40; //? RPort: 40000
 	
 	buf[38] = 0x11; // Spare bits ,Downlink only ,Packetfilter identifier :2
 	buf[39] =0x31; //Packet evaluation precedence:49
 	buf[40] = 0x11; //Packet filter length
 	buf[41] = 0x10; //IPv4 remote address type(16)
-	&buf[42] = 0xc0a7076e; //?? ims server
+	&buf[42] = 0xc0a8c80a; //? RIP: 192.168.200.10
 	&buf[46] = 0xffffffff; //IPv4 address mask:255.255.255.255
 	buf[50] = 0x30;  //Protocol identifier/Next header type(48)
 	buf[51] = 0x11; //Protocol/header:UDP
 	buf[52] = 0X40; //Single locol port type(64)
-	&buf[53] = 0xc35a; //??RTP Port: 50010;
+	&buf[33] = 0x9c40; //? LPort: 40000
 	buf[55] = 0x50; //Single remote port type 
-	&buf[56] = 0x9156; // Port:37206
+	&buf[36] = 0x9c40; //? RPort: 40000
 	
 	buf[58] = 0x22; //Sparebit,Uplink only,Packet filter identifier:3
 	buf[59] =0x36; //Packet evaluation precedence:54
@@ -387,9 +392,9 @@ int nas_encode::encode_Activate_default_EPS_bearer_context_req_qci1(uint8_t* buf
 	buf[70] = 0x30;  //Protocol identifier/Next header type(48)
 	buf[71] = 0x11; //Protocol/header:UDP
 	buf[72] = 0X40; //Single locol port type(64)
-	&buf[73] = 0xc35b; //??RTP Port: 50011;
+	&buf[73] = 0x9c41; //? LPort: 40001
 	buf[75] = 0x50; //Single remote port type 
-	&buf[76] = 0x9157; // Port:37207
+	&buf[76] = 0x9c41; //? RPort: 40001
 	
 	buf[78] = 0x13; //Sparebit,Uplink only,Packet filter identifier:4
 	buf[79] =0x37; //Packet evaluation precedence:55
@@ -400,14 +405,29 @@ int nas_encode::encode_Activate_default_EPS_bearer_context_req_qci1(uint8_t* buf
 	buf[90] = 0x30;  //Protocol identifier/Next header type(48)
 	buf[91] = 0x11; //Protocol/header:UDP
 	buf[92] = 0X40; //Single locol port type(64)
-	&buf[93] = 0xc35b; //??RTP Port: 50011;
+	&buf[93] = 0x9c41; //? LPort: 40001
 	buf[95] = 0x50; //Single remote port type 
-	&buf[96] = 0x9157; // Port:37207
+	&buf[96] = 0x9c41; //? RPort: 40001
 
 	*/
-	
-	char c[]="7200c506050187878787512420301110c0a7076effffffff301140c35a50915611311110c0a7076effffffff301140c35a50915622361110c0a7076effffffff301140c35850915713371110c0a7076effffffff301140c35b509157";
+
+	char c[]=	"7200c5060501878787875124"
+				"20301110c0a800b4ffffffff3011409c40509c40"
+				"11311110c0a8c80affffffff3011409c40509c40"
+				"22361110c0a800b4ffffffff3011409c41509c41"
+				"13371110c0a8c80affffffff3011409c41509c41";
+
 	c2u(&buf[7],c,92);
+
+	for (i=0; i<ue->erab_tft.filter_num; i++)
+	{
+		memcpy(&buf[23+i*20], &ue->erab_tft.filter[i].remote_ip, sizeof(ue->erab_tft.filter[i].remote_ip));
+		memcpy(&buf[27+i*20], &ue->erab_tft.filter[i].remote_ip_mask, sizeof(ue->erab_tft.filter[i].remote_ip_mask));
+		memcpy(&buf[34+i*20], &ue->erab_tft.filter[i].LPort, sizeof(ue->erab_tft.filter[i].LPort));
+		memcpy(&buf[37+i*20], &ue->erab_tft.filter[i].RPort, sizeof(ue->erab_tft.filter[i].RPort));
+	}
+	
+
 	ss=do_EIA1(ue->sec.k_nasint,&buf[6],93,ue->sec.int_al,&ue->sec.dl_count);
 	memcpy(&buf[2],ss,4);
 	
