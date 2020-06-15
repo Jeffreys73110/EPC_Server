@@ -137,6 +137,20 @@ void s1ap_decode::decode_ProtocolIE_ERAB_SetupListCtxtSURes(uint8_t* buf,erab_se
 	printf("est: ebi: %d\n enb_ipv4: %08x\n s1u_enb_fteid: %08x\n",est->ebi,est->enb_ipv4,est->s1u_enb_fteid);
 
 }
+void s1ap_decode::decode_ProtocolIE_ERAB_SetupListBearerSURes(uint8_t* buf,erab_setuplistctxtsures_t* est){
+	int len=buf[0]+1;
+	//TODO:there's len IEs need to be written
+	//if((buf[1]<<8)+buf[2]!=50) printf("error: s1ap_decode: decode_ProtocolIE_ERAB_SetupLIstCtxtSURes: Item unknown\n");
+	if(buf[1]!=39) printf("error: s1ap_decode: decode_ProtocolIE_ERAB_SetupListBearerSURes: Item unknown\n");
+	//buf[3]: criticality
+	//buf[4]: len of E-RABSetupItemCtxtSURes
+	//buf[5]&0x80: extension, buf[5]&0x40: preamble, buf[5]&0x20: extension range
+	est->ebi = (buf[4]>>1);
+	memcpy(&est->enb_ipv4,&buf[6],4);
+	memcpy(&est->s1u_enb_fteid,&buf[10],4);
+	printf("est: ebi: %d\n enb_ipv4: %08x\n s1u_enb_fteid: %08x\n",est->ebi,est->enb_ipv4,est->s1u_enb_fteid);
+	
+}
 void s1ap_decode::decode_ProtocolIE_eNB_UE_S1AP_ID(uint8_t* buf,uint32_t* enb_ue_id){
 //TODO: find good UE to give eNB and save something for UE?
 	int id_enb_ue_s1ap_id=(buf[1]<<8)+buf[2];
@@ -263,6 +277,19 @@ int s1ap_decode::decode_InitialContextSetup_ProtocolIE_Field(uint8_t* buf,erab_s
         }
         return len;
 }
+int s1ap_decode::decode_ERABSetup_ProtocolIE_Field(uint8_t* buf,erab_setuplistctxtsures_t* est){
+        int IEs_ID=(buf[0]<<8)+buf[1],len=buf[3];
+		printf("IEs_ID: %d\nlen: %d\n",IEs_ID,len);
+        if(IEs_ID==0){          //MME-UE-S1AP-ID
+        }
+        else if(IEs_ID==8){             //ENB-UE-S1AP-ID
+        }
+        else if(IEs_ID==28){            //NAS
+		//there's something strange
+            decode_ProtocolIE_ERAB_SetupListBearerSURes(buf+5,est);
+        }
+        return len;
+}
 /******************************************************************************
  *									      *
  *				decode message				      *
@@ -326,6 +353,16 @@ printf("in initialcontext buf[0:2]:%02x%02x%02x\n",buf[0],buf[1],buf[2]);
 		jndex++;
 	}
 }
+void s1ap_decode::decode_s1ap_ERABSetupResponse_message(uint8_t* buf,erab_setuplistctxtsures_t* est){
+	int len=buf[0],ProtocolIE_Field_len=((int(buf[2]))<<8)+buf[3],index=0,jndex=0;
+	for(index=0;index<ProtocolIE_Field_len;index++){
+	//UE not used?
+		jndex+=decode_ERABSetup_ProtocolIE_Field(buf+jndex+4,est);
+		jndex+=3;
+		jndex++;
+	}
+}
+
 void s1ap_decode::decode_s1ap_UEContextReleaseRequest_message(uint8_t* buf,ue_ctx_t* ue){
 	int len=buf[0],ProtocolIE_Field_len=((int(buf[2]))<<8)+buf[3],index=0,jndex=0;
 	if(buf[0]==0x80){

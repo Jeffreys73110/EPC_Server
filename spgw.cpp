@@ -55,8 +55,8 @@ spgw* spgw::get_instance(){
 	pthread_mutex_lock(&spgw_instance_mutex);
 	if(m_instance==NULL){
 		m_instance=new spgw();
-		m_instance->m_s1u_sgw_fteid=0x01000000;
-		m_instance->m_s11_sgw_fteid=0x01000000;
+		m_instance->m_s1u_sgw_fteid=0x00000000;
+		m_instance->m_s11_sgw_fteid=0x00000000;
 		m_instance->init_s1u();
 		m_instance->init_sgi();
 		printf("new spgw\n");
@@ -84,6 +84,16 @@ void spgw::init_s1u(){
 	if((bind(m_s1u_soc,(sockaddr*)&m_s1u_addr,sizeof(m_s1u_addr)))==-1){
 		printf("ms1u bind error\n");
 	}
+	
+	/*
+	m_sgi_sip_soc=socket(AF_INET,SOCK_DGRAM,0);
+	m_sgi_sip_addr.sin_family=AF_INET;
+	m_sgi_sip_addr.sin_addr.s_addr=inet_addr("192.168.7.110");  //IMS server IP
+	m_sgi_sip_addr.sin_port=htons(5060);
+	if((bind(m_sgi_sip_soc,(sockaddr*)&m_sgi_sip_addr,sizeof(m_sgi_sip_addr)))==-1){
+		printf("ms1u bind error\n");
+	}*/
+	
 }
 void spgw::init_sgi(){
 	const int on=1;
@@ -99,7 +109,7 @@ void spgw::init_sgi(){
 	}
 
 	// not be used in init functions, but this will be used by other functions
-	m_sgi_addr.sin_addr.s_addr = inet_addr("192.168.0.152");
+	m_sgi_addr.sin_addr.s_addr = inet_addr("192.168.7.108");
 	
 /* 
 //test send raw packet
@@ -169,12 +179,14 @@ void spgw::gtpu_write_header(uint8_t* msg,int len,uint32_t teid){
 }
 
 uint32_t spgw::get_next_s11_sgw_fteid(){
-	//return m_s11_sgw_fteid++;
+	m_s11_sgw_fteid += 0x01000000;
 	return m_s11_sgw_fteid;
+	//return m_s11_sgw_fteid;
 }
 uint32_t spgw::get_next_s1u_sgw_fteid(){
-	//return m_s1u_sgw_fteid++;
+	m_s1u_sgw_fteid += 0x01000000;
 	return m_s1u_sgw_fteid;
+	//return m_s1u_sgw_fteid;
 }
 uint32_t spgw::get_s1u_addr_ipv4(){
 	return m_s1u_addr.sin_addr.s_addr;
@@ -185,7 +197,7 @@ void spgw::manage_create_session_request(uint32_t s11_mme_fteid,int bearer_id,in
 //maybe you nees eps bearer id, imsi or other
 	*s11_sgw_fteid = get_next_s11_sgw_fteid();
 	*s1u_sgw_fteid = get_next_s1u_sgw_fteid();
-
+	printf("yyyyyyyy%02xyyyyyyyyyyyy\n",m_s1u_sgw_fteid);
 	tunnel_ctx_t ni;
 	ni.s11_mme_fteid = s11_mme_fteid;
 	ni.s11_sgw_fteid = *s11_sgw_fteid;
@@ -222,7 +234,8 @@ void spgw::manage_modify_bearer_request(uint32_t s11_sgw_fteid,erab_setuplistctx
 }
 void spgw::manage_s1u_pdu(uint8_t* msg,sockaddr_in* sin,int* len){
 	in_addr this_ip;
-	this_ip.s_addr = inet_addr("192.168.0.152");
+	this_ip.s_addr = inet_addr("192.168.7.108");
+	int big_udp_flag=0;
 
 	ip* iphdr = (ip*)&msg[GTPV1_LEN]; 
 	tcphdr* tcp;
@@ -247,8 +260,37 @@ void spgw::manage_s1u_pdu(uint8_t* msg,sockaddr_in* sin,int* len){
 	}
 	else if(iphdr->ip_p==IPPROTO_UDP){		//IPPROTO_UDP:17
 		udp = (udphdr*)&msg[GTPV1_LEN+sizeof(ip)];
-		memcpy(&nit.ue_port,&udp->uh_sport,2);
-		memcpy(&nit.out_port,&udp->uh_dport,2);
+		if (ntohs(iphdr->ip_off) & 0x2000){
+				printf("Flags:2000\n");
+				m_s1u_udp_port.insert(std::pair<short unsigned int, short unsigned int>(iphdr->ip_id, udp->uh_sport));
+		}
+		
+		/*
+		if(big_udp_flag==2){
+			nit.ue_port = 0xc413;
+		    nit.out_port = 0xc413;
+			/*
+			udp->uh_sport = 0xc413;
+			udp->uh_dport = 0xc413;
+			memcpy(&nit.ue_port,&udp->uh_sport,2);
+			memcpy(&nit.out_port,&udp->uh_dport,2);
+
+		}*/
+		
+		
+		if (ntohs(iphdr->ip_off) & 0x00b9){
+				printf("Flags:00b9\n");
+				std::map<short unsigned int,short unsigned int>::iterator ipo = m_s1u_udp_port.find(iphdr->ip_id);
+				//memcpy(&nit.ue_port,ipo->second,2);
+				memcpy(&nit.out_port,&ipo->second,2);
+				//out_ip_port += ipo->second;
+				big_udp_flag+=1;
+			}
+		
+		else{
+			memcpy(&nit.ue_port,&udp->uh_sport,2);
+			memcpy(&nit.out_port,&udp->uh_dport,2);
+		}
 	}
 	else{
 		printf("warning: s1u get unsupported L4 protocol %d\n",iphdr->ip_p);
@@ -280,7 +322,8 @@ void spgw::manage_s1u_pdu(uint8_t* msg,sockaddr_in* sin,int* len){
 
 	// find tunnel ctx by s1u_sgw_fteid to get s1u_enb_fteid (recorded in tunnel ctx)
 	std::map<uint32_t,uint32_t>::iterator iter = m_s1u_sgw_fteid_to_s11_sgw_fteid.find(s1u_sgw_fteid);
-	//printf("\x1B[34ms1u_sgw_fteid:%08x\x1B[0m\n",s1u_sgw_fteid);
+	printf("\x1B[34ms1u_sgw_fteid:%08x\x1B[0m\n",s1u_sgw_fteid);
+	printf("kk_flag: %d\n",big_udp_flag);
 	if(iter == m_s1u_sgw_fteid_to_s11_sgw_fteid.end()){
 		printf("spgw: can't find s11_sgw_fteid by s1u_sgw_fteid\n");
 		return;
@@ -298,17 +341,29 @@ void spgw::manage_s1u_pdu(uint8_t* msg,sockaddr_in* sin,int* len){
 	sin->sin_family = AF_INET;
 	sin->sin_port = nit.out_port;
 	sin->sin_addr.s_addr = nit.out_ipv4;
-
+	
+		
 	// Change IP Layer Header
 	iphdr->ip_src = this_ip;
+	
+	
+	//printf("IP checksum: %5u\n",ntohs(iphdr->ip_sum));
 	iphdr->ip_sum = modify_checksum(iphdr->ip_sum,nit.ue_ipv4,this_ip.s_addr);
-
+	//printf("IP modify checksum: %5u\n",ntohs(iphdr->ip_sum));
+	
 	// Change Transport Layer Header
 	if(iphdr->ip_p==IPPROTO_TCP){
 		tcp->th_sum = modify_checksum(tcp->th_sum,nit.ue_ipv4,this_ip.s_addr);
 	}
+
 	else if(iphdr->ip_p==IPPROTO_UDP){
-		udp->uh_sum = modify_checksum(udp->uh_sum,nit.ue_ipv4,this_ip.s_addr);
+		printf("UDP checksum: %5u\n",ntohs(udp->uh_sum));
+		if(big_udp_flag!=1){
+			udp->uh_sum = modify_checksum(udp->uh_sum,nit.ue_ipv4,this_ip.s_addr);
+		}
+		else
+			printf("UDP not modify checksum\n");
+		printf("UDP modify checksum: %5u\n",ntohs(udp->uh_sum));
 	}
 
 }
@@ -320,8 +375,10 @@ void spgw::manage_sgi_write_gtp_header(uint8_t* msg,short len,uint32_t s1u_enb_f
 }
 void spgw::manage_sgi_pdu(uint8_t* msg){
 	ip* iphdr = (ip*)&msg[14];
+	int b_flag=0;
 	if(!memcmp(&iphdr->ip_dst,&m_sgi_addr.sin_addr,4)){
-		//printf("sgi_input: iphdr=%s\n",inet_ntoa(iphdr->ip_dst));
+		printf("sgi_input: iphdr=%s Flag:%x\n",inet_ntoa(iphdr->ip_dst),ntohs(iphdr->ip_off));
+				
 		tcphdr* tcp;
 		udphdr* udp;
 
@@ -335,13 +392,26 @@ void spgw::manage_sgi_pdu(uint8_t* msg){
 		}
 		else if(iphdr->ip_p == IPPROTO_UDP){
 			udp = (udphdr*) &msg[14+sizeof(ip)];
+			
+			if (ntohs(iphdr->ip_off) & 0x2000){
+				printf("Flags:2000\n");
+				m_sgi_udp_port.insert(std::pair<short unsigned int, short unsigned int>(iphdr->ip_id, udp->uh_sport));
+			}
+			
 			out_ip_port += NAT_IPPROTO_UDP_OFFSET;
-			out_ip_port += udp->uh_sport;
+			if (ntohs(iphdr->ip_off) & 0x00b9){
+				printf("Flags:00b9\n");
+				std::map<short unsigned int,short unsigned int>::iterator ipo = m_sgi_udp_port.find(iphdr->ip_id);
+				out_ip_port += ipo->second;
+				b_flag+=1;
+			}
+			else
+				out_ip_port += udp->uh_sport;
 		}
 		else{
 			out_ip_port += iphdr->ip_p;
 		}
-
+		printf("now out_port:%016lx\n",out_ip_port);
 		// do search
 		std::map<uint64_t,uint32_t>::iterator it = m_out_ip_port_to_s11_sgw_fteid.find(out_ip_port);
 		if(it == m_out_ip_port_to_s11_sgw_fteid.end()) {printf("sgi pdu no out_ip_port:%016lx\n",out_ip_port);return;}
@@ -357,7 +427,8 @@ void spgw::manage_sgi_pdu(uint8_t* msg){
 			tcp->th_sum = modify_checksum(tcp->th_sum,iphdr->ip_dst.s_addr,jt->second.vec_nit.at(0).ue_ipv4);
 		}
 		else if(iphdr->ip_p==IPPROTO_UDP){
-			udp->uh_sum = modify_checksum(udp->uh_sum,iphdr->ip_dst.s_addr,jt->second.vec_nit.at(0).ue_ipv4);
+			if(b_flag!=1)
+				udp->uh_sum = modify_checksum(udp->uh_sum,iphdr->ip_dst.s_addr,jt->second.vec_nit.at(0).ue_ipv4);
 		}
 
 		// change L6(IP) checksum/dst_ip
@@ -372,7 +443,7 @@ void spgw::manage_sgi_pdu(uint8_t* msg){
 		sin.sin_family = AF_INET;
 		sin.sin_port = htons(2152);
 		sin.sin_addr.s_addr = jt->second.enb_ipv4;
-		//printf("sgi_send_to_s1u_sin:%s\n",inet_ntoa(sin.sin_addr));
+		printf("sgi_send_to_s1u_sin:%s\n",inet_ntoa(sin.sin_addr));
 		
 		sendto(m_s1u_soc,&msg[6],htons(iphdr->ip_len)+8,0,(sockaddr*)&sin,sizeof(sockaddr));
 	}
@@ -381,7 +452,7 @@ void spgw::manage_sgi_pdu(uint8_t* msg){
 void spgw::run(){
 	pthread_t pid;
 	pthread_create(&pid,NULL,thread_send_echo_request,NULL);
-	sockaddr_in src_addrin;
+	sockaddr_in src_addrin,src_addrin2;
 	sockaddr_ll src_addrll;
 	fd_set set;
 	uint8_t msg[4000];
@@ -391,17 +462,21 @@ void spgw::run(){
 	printf("spgw run!\n");
 	
 	int max_fd=(m_sgi_rx_soc>m_s1u_soc)?m_sgi_rx_soc:m_s1u_soc;
+	int kk_flag=0;
+	char sip_register[389];
+	
 	while(1){
 		FD_ZERO(&set);
 		FD_SET(m_sgi_rx_soc,&set);
 		//FD_SET(m_s1u_if,&set);
 		FD_SET(m_s1u_soc,&set);
+		//FD_SET(m_sgi_sip_soc,&set);
 		int n=select(max_fd+1,&set,NULL,NULL,NULL);
 		if(n<0){printf("spgw select error\n");}
 		else if(n){
 			if(FD_ISSET(m_s1u_soc,&set)){
 				len=recvfrom(m_s1u_soc,msg,3999,0,(sockaddr*)&src_addrin,&addrlen);
-				printf("recvfrom s1u, from: %s, len:%d\n",inet_ntoa(src_addrin.sin_addr),len);
+				printf("recvfrom s1u, from: %s, Port: %d, len:%d\n",inet_ntoa(src_addrin.sin_addr),ntohs(src_addrin.sin_port),len);
 				//echo request  GTP echo request的[1]欄位為0x01(固定格式)
 				if(msg[1]==0x01){
 					msg[1]=0x02;
@@ -413,16 +488,101 @@ void spgw::run(){
 					len=sendto(m_s1u_soc,msg,14,0,(sockaddr*)&src_addrin,sizeof(src_addrin));
 				}
                 if(msg[1]==0xff){   //轉送 將s1u介面收到的封包轉送至SGi介面
+					/*
+					printf("##################################\n");
+					for(int kk=0;kk<1501;kk++){
+						printf("%02x",msg[kk]);
+					}
+					printf("\n##################################\n");*/
+					
+					if(len==1508){
+						kk_flag=1;
+						
+					}
+					
+					/*
+					if(kk_flag!=0){
+						printf("##################################\n");
+						for(int kk=0;kk<len;kk++){
+							printf("%02x",msg[kk]);
+						}
+						printf("##################################\n");
+					}*/
 					manage_s1u_pdu(msg,&src_addrin,&s1ulen);
+					
+					/*
+					if(kk_flag!=0){
+						printf("++++++++++++++++++++++++++++++++++\n");
+						for(int kk=8;kk<(s1ulen+8);kk++){
+							printf("%02x",msg[kk]);
+						}
+						printf("++++++++++++++++++++++++++++++++++\n");
+					}*/
+					
 					len=sendto(m_sgi_tx_soc,&msg[8],s1ulen,0,(sockaddr*)&src_addrin,sizeof(src_addrin));
-					printf("sendto: %d %s\n",len,inet_ntoa(src_addrin.sin_addr));
+					if(len==1500)
+						kk_flag+=1;						
+					else
+						kk_flag=0;
+					
+					
+					//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+					/*
+					if(kk_flag==0){
+						len=sendto(m_sgi_tx_soc,&msg[8],s1ulen,0,(sockaddr*)&src_addrin,sizeof(src_addrin));
+					}
+										
+					if(len==1500||kk_flag!=0){
+						
+						
+						printf("##################################\n");
+						if(len==1500){
+							for(int kk=36;kk<424;kk++){
+								printf("%c",(char)msg[kk]);
+								
+								sip_register[kk-36] = (char)msg[kk];
+								//printf("%02x",msg[kk]);
+							}
+						}
+						printf("\n##################################\n");
+						
+						
+						char hh[1000];
+						uint8_t msgg[500];
+						int llen;
+						int test_soc=socket(AF_INET,SOCK_DGRAM,0);
+						//sprintf(hh,"%s sip:192.168.7.120:5060 SIP/2.0\r\n","REGISTER");
+						//sprintf(hh,"%s\r\n",sip_register);
+						
+						if(kk_flag!=0){
+							llen=sendto(test_soc,sip_register,strlen(sip_register),0,(sockaddr*)&src_addrin,sizeof(src_addrin));
+							printf("Test sendto : Len=%d\n",llen);
+							kk_flag=0;
+						}
+						else{
+							kk_flag=1;
+						}
+												
+					}*/
+					
+					//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+					printf("sendto: %d %s, Port: %d\n",len,inet_ntoa(src_addrin.sin_addr),ntohs(src_addrin.sin_port));
 					if(len<0)perror("s1u sendto");
 				}
 				printf("\n");
 			}
+
+				
 			if(FD_ISSET(m_sgi_rx_soc,&set)){	//轉送 將SGi介面收到的封包轉送至s1u介面
 				len=recvfrom(m_sgi_rx_soc,&msg[0],3999,0,(sockaddr*)&src_addrll,&addrlen);
+				
+				if(len==1514){
+					printf("\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+					printf("AAAAAAAAAAAAAAAAAAAAA\n");
+					printf("\nHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH\n");
+				}
 				manage_sgi_pdu(msg);
+				
 			}
 		}
 		
@@ -435,3 +595,4 @@ int main(){
 	spgw->init();
 	spgw->run();
 }*/
+

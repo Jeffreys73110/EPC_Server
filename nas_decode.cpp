@@ -438,6 +438,20 @@ void nas_decode::decode_UplinkNASTransportMessage_nas_pdu(uint8_t* msg,UPLINK_NA
 		printf("ESM information response");
 		decode_ESM_information_response(&msg[pos+2],&nas->prop.esm_info);
 	}
+	
+	//Tracking Area Update Request
+	if(nas->request_type==0x48){
+		printf("Tracking Area Update Request");
+	}
+	
+	if(nas->request_type==0xd0){
+		printf("PDN Connectivity request");
+	}
+	
+	if(nas->request_type==0x4c){
+		printf("Extended service request");
+	}
+	
 	printf("\n");
 }
 /*

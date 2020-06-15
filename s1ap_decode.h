@@ -24,6 +24,7 @@ public:
 	void decode_ProtocolIE_MME_UE_S1AP_ID(uint8_t*,uint32_t*);
 	void decode_ProtocolIE_TAI(uint8_t*,enb_ctx_t*);
 	void decode_ProtocolIE_ERAB_SetupListCtxtSURes(uint8_t*,erab_setuplistctxtsures_t*);
+	void decode_ProtocolIE_ERAB_SetupListBearerSURes(uint8_t* ,erab_setuplistctxtsures_t* );
 	void decode_InitialUEMessage_ProtocolIE_NAS(uint8_t*,ue_ctx_t*);
 	void decode_UplinkNASTransportMessage_ProtocolIE_NAS(uint8_t*,UPLINK_NAS_TRANSPORT_STRUCT*);
 	int decode_S1Setup_ProtocolIE_Field(uint8_t*,enb_ctx_t*);
@@ -31,12 +32,14 @@ public:
 	int decode_InitialUEMessage_ProtocolIE_Field(uint8_t*,ue_ctx_t*,uint32_t*);
 	int decode_s1ap_UplinkNASTransport_ProtocolIE_Field(uint8_t*,ue_ctx_t*,uint32_t*,UPLINK_NAS_TRANSPORT_STRUCT*);
 	int decode_InitialContextSetup_ProtocolIE_Field(uint8_t* buf,erab_setuplistctxtsures_t* est);
+	int decode_ERABSetup_ProtocolIE_Field(uint8_t* buf,erab_setuplistctxtsures_t* est);
 	int decode_UEContextReleaseRequest_ProtocolIE_Field(uint8_t*,ue_ctx_t*);
 
 	void decode_s1ap_S1Setup_message(uint8_t*,enb_ctx_t* enb);
 	void decode_s1ap_UplinkNASTransport_message(uint8_t*,ue_ctx_t*,uint32_t*,UPLINK_NAS_TRANSPORT_STRUCT*);
 	void decode_s1ap_InitialUEMessage_message(uint8_t* buf, ue_ctx_t* enb,uint32_t*);
 	void decode_s1ap_InitialContextSetup_message(uint8_t* buf,erab_setuplistctxtsures_t* est);
+	void decode_s1ap_ERABSetupResponse_message(uint8_t* buf,erab_setuplistctxtsures_t* est);
 	void decode_s1ap_UEContextReleaseRequest_message(uint8_t*,ue_ctx_t*);
 };
 

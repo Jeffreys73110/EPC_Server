@@ -50,18 +50,23 @@ private:
 
 	// because sgi package is much more than s11, maybe this can be changed to out_ip_port to optimize
 	std::map<uint32_t,tunnel_ctx_t> m_s11_sgw_fteid_to_tunnel_ctx;
+	
+	//Deal with the big udp packet
+	std::map<short unsigned int,short unsigned int> m_s1u_udp_port;
+	std::map<short unsigned int,short unsigned int> m_sgi_udp_port;
 
 	uint32_t m_s1u_sgw_fteid;
 	uint32_t m_s11_sgw_fteid;
 
 	int m_s1u_soc;
+	int m_sgi_sip_soc;
 
 	int m_sgi_tx_soc;
 	int m_sgi_rx_soc;
 
 	std::vector<sockaddr_in> m_enb_info;
 
-	sockaddr_in m_s1u_addr,m_sgi_addr;
+	sockaddr_in m_s1u_addr,m_sgi_addr,m_sgi_sip_addr;
 public:
 	static spgw* get_instance();
 

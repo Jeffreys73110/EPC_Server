@@ -522,7 +522,12 @@ void get_res_autn_k_asme(u8 res[8],u8 autn[16],u8 k_asme[32],u8 rand[16],u8 sqn[
 			amf[i]=c2u(amf_c[2*i])*16+c2u(amf_c[2*i+1]);
 		}
 	}
-
+	printf("++++++++++++++++++++++++++++++++++++++++\n");
+	printf("sqn: ");
+	for(i = 0;i<6;i++)
+		printf("%02x",sqn[i]);
+	printf("\n++++++++++++++++++++++++++++++++++++++++\n");
+	
 	
 	// calculate res ck ik ak
 	f2345(k,rand,res,ck,ik,ak);

@@ -1,0 +1,19 @@
+目前功能: 手機註冊成功，出現VoLTE標誌
+
+<UE終端(手機)> :
+
+	1. APN設定 -> (1)APN類型(ia) => 名稱 : apn.TestNetwork
+		      (2)APN類型(ims)=> 名稱 : ims
+
+	2. 4G LTE Attach complete後才開啟VoLTE，否則造成PDN Connection error
+
+
+<EPC> :
+
+	1. Modify the IMS server IP which in nas_encode.cpp function:<encode_Activate_default_EPS_bearer_context_req>
+	   ,the default IP is 192.168.7.111
+
+<IMS Server> :
+
+	1. Use VC6.0 rebuild and execute the file of UDP_S 
+        2. UDP.cpp Ln12 -> caller default is 0 , if want to receive INVITE(Be callee) ,change to 1

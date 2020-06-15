@@ -17,9 +17,13 @@ private:
 	int encode_ENB_UE_S1AP_ID(uint8_t*,uint32_t);
 	int encode_NAS_PDU_Identity_Request_IMSI(uint8_t*);
 	int encode_NAS_PDU_ESM_Information_Request(uint8_t* buf,ue_ctx_t* ue);
+	int encode_NAS_PDU_Tracking_Area_Update_Accept(uint8_t* buf,ue_ctx_t* ue);
 	int encode_NAS_PDU_EMM_Information_Request(uint8_t* buf,ue_ctx_t* ue);
+	int encode_NAS_PDU_Service_reject(uint8_t* buf,ue_ctx_t* ue);
 	int encode_UESecurityCapabilities(uint8_t* buf,ue_ctx_t* ue);
 	int encode_ERABToSetupListCtxtSUReq(uint8_t* buf,ue_ctx_t* ue,int ebi,int msg_type);
+	int encode_ERABToBeSetupListBearerSUReq(uint8_t* buf,ue_ctx_t* ue);
+	int encode_ERABToBeSetupListBearerSUReq_qci1(uint8_t* buf,ue_ctx_t* ue);
 	int encode_SecurityKey(uint8_t* buf,ue_ctx_t* ue);
 	int encode_UERadioCapability(uint8_t* buf,ue_ctx_t* ue);
 	int encode_SRVCCOperationPossible(uint8_t* buf);
@@ -36,9 +40,13 @@ public:
 	int encode_NAS_PDU_Security_Mode_Command(uint8_t*,ue_ctx_t*);
 	int encode_Security_Mode_Command_message(uint8_t*,ue_ctx_t*);
 	int encode_ESM_Information_Request_message(uint8_t*,ue_ctx_t*);
+	int encode_Tracking_Area_Update_Accept(uint8_t*,ue_ctx_t*);
     int encode_EMM_Information_Request_message(uint8_t*,ue_ctx_t*);
 	int encode_InitialContextSetupRequest_message(uint8_t* buf,ue_ctx_t* ue,int ebi);
+	int encode_ERABSetRequest_message(uint8_t* buf,ue_ctx_t* ue,int ebi);
 	int encode_InitialContextSetupRequest_UECapabilityInformation_message(uint8_t*,ue_ctx_t*);
 	int encode_UEContextReleaseCommand_message(uint8_t*,ue_ctx_t*);
+	int encode_PDN_connectivity_response(uint8_t* ,ue_ctx_t*);
+	int encode_service_reject(uint8_t* ,ue_ctx_t*);
 };
 #endif

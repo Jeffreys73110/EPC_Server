@@ -152,6 +152,25 @@ int s1ap_encode::encode_NAS_PDU_ESM_Information_Request(uint8_t* buf,ue_ctx_t* u
 	buf[3]=m_nas_encode->encode_ESM_Information_Request(&buf[4],ue);
 	return buf[3]+4;
 }
+int s1ap_encode::encode_NAS_PDU_Tracking_Area_Update_Accept(uint8_t* buf,ue_ctx_t* ue){
+	buf[0]=0x00; buf[1]=0x1a;	//id-NAS-PDU
+	buf[2]=0x00;	//reject
+	buf[3]=m_nas_encode->encode_Tracking_Area_Update_Accept(&buf[4],ue);
+	return buf[3]+4;
+}
+
+int s1ap_encode::encode_NAS_PDU_Service_reject(uint8_t* buf,ue_ctx_t* ue){
+	buf[0]=0x00; buf[1]=0x1a;	//id-NAS-PDU
+	buf[2]=0x00;	//reject
+	buf[3]=m_nas_encode->encode_Service_reject(&buf[4],ue);
+	return buf[3]+4;
+}
+
+/*
+int s1ap_encode::encode_(uint8_t* buf,ue_ctx_t* ue){
+	
+}
+*/
 int s1ap_encode::encode_Identity_Request_message(uint8_t* buf,uint32_t* mme_ue_s1ap_id,uint32_t* enb_ue_s1ap_id){
 	int len=0;
 	buf[0]=0x00; 	//InitiatingMessage
@@ -225,12 +244,35 @@ int s1ap_encode::encode_ESM_Information_Request_message(uint8_t* buf,ue_ctx_t* u
 	buf[3]=len+3;
 	return buf[3]+4;
 }
+int s1ap_encode::encode_Tracking_Area_Update_Accept(uint8_t* buf, ue_ctx_t* ue){
+	int len=0,i;
+	buf[0]=0x00; 
+	buf[1]=0x0b;	//id-downlinkNASTransport
+	buf[2]=0x40;	//ignore
+	
+	buf[4]=0x00;
+	buf[5]=0x00; buf[6]=0x03;	//3 items
+	len+=encode_MME_UE_S1AP_ID(&buf[7],ue->MME_UE_ID);
+	len+=encode_ENB_UE_S1AP_ID(&buf[7+len],ue->eNB_UE_ID);
+	len+=encode_NAS_PDU_Tracking_Area_Update_Accept(&buf[7+len],ue);
+	
+	buf[3]=len+3;
+	return buf[3]+4;
+}
 int encode_uEaggregateMaximumBitrate(uint8_t* buf){
 	buf[0]=0x00; buf[1]=0x42;//id-uEaggregateMaximumBitrate
 	buf[2]=0x00;	//reject
 	buf[3]=0x08;	//len
 	buf[4]=0x10;buf[5]=0x20;buf[6]=0x00;buf[7]=0x00;//DL<00>:ext preamble <010>:len=2+1 <000>:padding
 	buf[8]=0x40;buf[9]=0x20;buf[10]=0x00;buf[11]=0x00;//UL<010>:len=2+1 <00000>:padding
+	return buf[3]+4;
+}
+int encode_ims_uEaggregateMaximumBitrate(uint8_t* buf){
+	buf[0]=0x00; buf[1]=0x42;//id-uEaggregateMaximumBitrate
+	buf[2]=0x00;	//reject
+	buf[3]=0x08;	//len
+	buf[4]=0x10;buf[5]=0x30;buf[6]=0x00;buf[7]=0x00;//DL<00>:ext preamble <010>:len=2+1 <000>:padding
+	buf[8]=0x40;buf[9]=0x30;buf[10]=0x00;buf[11]=0x00;//UL<010>:len=2+1 <00000>:padding
 	return buf[3]+4;
 }
 int s1ap_encode::encode_UESecurityCapabilities(uint8_t* buf,ue_ctx_t* ue){
@@ -287,6 +329,61 @@ int s1ap_encode::encode_ERABToSetupListCtxtSUReq(uint8_t* buf,ue_ctx_t* ue,int e
 	}
 	return buf[3]+4;
 }
+int s1ap_encode::encode_ERABToBeSetupListBearerSUReq(uint8_t* buf,ue_ctx_t* ue){
+	int len =0;
+	buf[0] = 0x00; buf[1] = 0x10; //id-E-RABToBeSetupListBearerSUReq
+	buf[2] = 0x00;  //reject
+	
+	buf[4] = 0x00; // one item & sequence len
+	buf[5] = 0x00; buf[6] = 0x11; //id-E-RABToBeSetupListBearerSUReq
+	buf[7] = 0x00 ; //reject
+	
+	// enter encoder nas 
+	buf[9] = 0x0c; //<0>ext flag <0>no IE-Ext <1100> e-rab id
+	buf[10] = 0x00;	//<0>gbrQosInformation <0>no IE-Ext 
+	buf[11] = 0x05; //QCI:5
+	buf[12]=0x04;	//AllocationAndRetentionPriority <0>ext flag <0>no IE-Ext <0001>PriorityLevel(1) <0>shall-not-trigger-pre-emption <0>not-pre-emptable
+	buf[13]=0x0f; buf[14]=0x80; //TransportLayerAddress <0>ext range <000111111>:len=31+1
+	memcpy(&buf[15],&ue->erab[6].s1u_ipv4,4);
+	memcpy(&buf[19],&ue->erab[6].s1u_sgw_fteid,4);
+	//buf[19] = 0x00; buf[20] = 0x00; buf[21] = 0x00; buf[22] =0x21;
+	len+=m_nas_encode->encode_Activate_default_EPS_bearer_context_req(&buf[23],ue);
+	
+	buf[8] = len + 14;
+	buf[3] = len + 19;
+	return buf[3]+4;
+}
+
+int s1ap_encode::encode_ERABToBeSetupListBearerSUReq_qci1(uint8_t* buf,ue_ctx_t* ue){
+	int len =0;
+	buf[0] = 0x00; buf[1] = 0x10; //id-E-RABToBeSetupListBearerSUReq
+	buf[2] = 0x00;  //reject
+	buf[3] = 0x80; //Length over flow
+	
+	buf[5] = 0x00; // one item & sequence len
+	buf[6] = 0x00; buf[7] = 0x11; //id-E-RABToBeSetupListBearerSUReq
+	buf[8] = 0x00; //reject
+	buf[9] = 0x80; //Length Over flow
+	// enter encoder nas 
+	buf[11] = 0x0e; //<0>ext flag <0>no IE-Ext <0101> e-rab id
+	
+	buf[12] = 0x80;	//<0>gbrQosInformation <1> IE-Ext 
+	buf[13] = 0x01; //QCI:1
+	buf[14]=0x17;	//AllocationAndRetentionPriority
+	buf[15]=0x10; buf[16]=0x0f; buf[17]=0xa0; buf[18]=0x00; buf[19]=0x40; buf[20]=0x0f; buf[21]=0xa0; buf[22]=0x00; buf[23]=0x40; //gbrQosInformation
+	buf[24]=0x0f; buf[25]=0xa0; buf[26]=0x00; buf[27]=0x40; buf[28]=0x0f; buf[29]=0xa0; buf[30]=0x00;
+	
+	buf[31]=0x0f; buf[32]=0x80;
+	memcpy(&buf[33],&ue->erab[7].s1u_ipv4,4);
+	memcpy(&buf[37],&ue->erab[7].s1u_sgw_fteid,4);
+	len+=m_nas_encode->encode_Activate_default_EPS_bearer_context_req_qci1(&buf[41],ue);
+	
+	buf[10] = len + 30;
+	buf[4] = len + 36;
+	return buf[4]+5;
+}
+
+
 int s1ap_encode::encode_SecurityKey(uint8_t* buf,ue_ctx_t* ue){
 	
 	static bool first_time=1;
@@ -421,6 +518,71 @@ int s1ap_encode::encode_UEContextReleaseCommand_message(uint8_t* buf, ue_ctx_t* 
 	len+=encode_UE_S1AP_IDs(buf+7,ue);
 	len+=encode_Cause(buf+len+7);
 	buf[3]=len+3;
+	return buf[3]+4;
+}
+
+int s1ap_encode::encode_PDN_connectivity_response(uint8_t* buf,ue_ctx_t* ue){
+	int len=0;
+	buf[0] = 0x00;
+	buf[1] = 0x05;
+	buf[2] = 0x00;
+	buf[3] = 0x80; //Length overflow
+	buf[5] = 0x00;
+	buf[6] = 0x00;  buf[7] = 0x04; //4個item
+	/*
+	buf[7] = 0x00; buf[8] = 0x00; //id-MME-UE-S1AP-ID
+	buf[9] = 0x00; //reject
+	buf[10] = 0x05; //剩餘長度
+	buf[11] = 0xc0; buf[12] = 0xce; buf[13] = 0x59; buf[14] = 0x49; buf[15] = 0xd1; //ID:3461958097
+	*/
+	len+=encode_MME_UE_S1AP_ID(&buf[8],ue->MME_UE_ID);
+	/*
+	buf[16] = 0x00; buf[17] = 0x08; //id-eNB-UE-S1AP-ID;
+	buf[18] = 0x00; //reject
+	buf[19] = 0x03; // 剩餘長度
+	buf[20] = 0x40; buf[21] =0x01; buf[22] = 0x01; //ENB-UE-S1AP-ID:257
+	*/
+	len+=encode_ENB_UE_S1AP_ID(&buf[8+len],ue->eNB_UE_ID);
+	len+=encode_ims_uEaggregateMaximumBitrate(&buf[8+len]);
+	len+=encode_ERABToBeSetupListBearerSUReq(&buf[8+len],ue);
+	buf[4]=len+3;	
+	return buf[4]+5;
+	
+}
+
+
+int s1ap_encode::encode_ERABSetRequest_message(uint8_t* buf,ue_ctx_t* ue,int ebi){
+	int len=0;
+	buf[0] = 0x00;
+	buf[1] = 0x05;
+	buf[2] = 0x00; //reject
+	buf[3] = 0x80; //Length overflow
+	buf[5] = 0x00;
+	buf[6] = 0x00;  buf[7] = 0x04; //4個item
+	
+	len+=encode_MME_UE_S1AP_ID(&buf[8],ue->MME_UE_ID);
+	len+=encode_ENB_UE_S1AP_ID(&buf[8+len],ue->eNB_UE_ID);
+	len+=encode_ims_uEaggregateMaximumBitrate(&buf[8+len]);
+	len+=encode_ERABToBeSetupListBearerSUReq_qci1(&buf[8+len],ue);
+	
+	buf[4]=len+3;	
+	return buf[4]+5;
+}
+
+
+int s1ap_encode::encode_service_reject(uint8_t* buf,ue_ctx_t* ue){
+	int len=0;
+	buf[0] = 0x00;
+	buf[1] = 0x0b;
+	buf[2] = 0x40; //ignore
+	buf[4] = 0x00;
+	buf[5] = 0x00;  buf[6] = 0x03; //3個item
+	
+	len+=encode_MME_UE_S1AP_ID(&buf[7],ue->MME_UE_ID);
+	len+=encode_ENB_UE_S1AP_ID(&buf[7+len],ue->eNB_UE_ID);
+	len+=encode_NAS_PDU_Service_reject(&buf[7+len],ue);
+	buf[3]=len+3;
+	
 	return buf[3]+4;
 }
 

@@ -19,6 +19,7 @@ nas_encode* nas_encode::get_instance(){
 	return m_instance;
 }
 int nas_encode::encode_UE_security_capability(uint8_t* buf,ue_ctx_t* ue){
+	
 //TODO: distinguish what to write here
 	uint8_t temp=0;
 	int i;
@@ -60,6 +61,43 @@ int nas_encode::encode_UE_security_capability(uint8_t* buf,ue_ctx_t* ue){
 	buf[5]=temp;
 	return buf[0]+1;
 }
+int nas_encode::encode_GPRS_Timer(uint8_t* buf){
+	int len=2;
+	buf[0]=0x5a;	//Element ID
+	buf[1]=0x49;		//54 mins
+	return len;
+}
+
+int nas_encode::encode_Tracking_area_identity_list(uint8_t* buf){
+	int len=6;
+	
+	buf[0]=0x54;	//Element ID
+	buf[1]=len;
+	buf[2]=0x20;	//Type of list & Number of element
+	
+	buf[3]=0x00;buf[4]=0xf1;buf[5]=0x10;	//MCC+MNC
+	buf[6]=0x00;buf[7]=0x01;	//TAC
+	
+	return len+2;
+}
+
+int nas_encode::encode_EPS_bearer_context_status(uint8_t* buf){
+	int len=2;
+	buf[0]=0x57;	//Element ID
+	buf[1]=len;
+	buf[2]=0x20;buf[3]=0x00;//EBI
+	
+	return len+2;
+}
+
+int nas_encode::encode_EPS_network_feature_support(uint8_t* buf){
+	int len=1;
+	buf[0]=0x64;	//Element ID
+	buf[1]=len;
+	buf[2]=0x01;	
+	return len+2;
+}
+
 int nas_encode::encode_Identity_Request_message_IMSI(uint8_t* buf){
 	printf("Send Message type : Identity Request Message IMSI\n");
 	buf[0]=0x03;	//len
@@ -127,6 +165,42 @@ int nas_encode::encode_ESM_Information_Request(uint8_t* buf,ue_ctx_t* ue){
 	return buf[0]+1;
 	
 }
+int nas_encode::encode_Tracking_Area_Update_Accept(uint8_t* buf,ue_ctx_t* ue){
+	printf("Send Message type : Tracking Area Update Accept\n");
+	uint8_t* ss;
+	int len=0;
+	buf[1]=0x27;	//Integrity and Ciphered
+	
+	buf[6]=ue->sec.dl_count;
+	buf[7]=0x07;	//EMM message
+	buf[8]=0x49;	//Tracking area Update Accept
+	buf[9]=0x01;	//EPS Update result value: Combined TA/LA update
+	
+	len+=encode_GPRS_Timer(&buf[10]);
+	len+=encode_Tracking_area_identity_list(&buf[10+len]);
+	len+=encode_EPS_bearer_context_status(&buf[10+len]);
+	len+=encode_EPS_network_feature_support(&buf[10+len]);
+	
+	buf[0]=9+len;
+	
+	ss=do_EIA1(ue->sec.k_nasint,&buf[6],4+len,ue->sec.int_al,&ue->sec.dl_count);
+	memcpy(&buf[2],ss,4);
+	return buf[0]+1;
+}
+int nas_encode::encode_Service_reject(uint8_t* buf,ue_ctx_t* ue){
+	printf("Send Message type : Service reject\n");
+	
+	buf[1] = 0x07;	
+	buf[2] = 0x4e;
+	buf[3] = 0x12;
+	
+	buf[0] =0x03;
+	
+	return buf[0]+1;
+	
+}
+
+
 int nas_encode::encode_EMM_Information_Request(uint8_t* buf,ue_ctx_t* ue){
 	printf("Send Message type : EMM Information Request");
 	uint8_t* ss;
@@ -193,6 +267,155 @@ int nas_encode::encode_Activate_default_context_request(uint8_t* buf,ue_ctx_t* u
 	c2u(buf,c,c_len);
 	return c_len;
 }
+
+int nas_encode::encode_Activate_default_EPS_bearer_context_req(uint8_t* buf,ue_ctx_t* ue){
+	int len=0;
+	uint8_t* ss;
+	buf[1] = 0x27;
+	
+	buf[6]=ue->sec.dl_count;
+	/*
+	buf[7] = 0x62; // EPS bear id:6
+	buf[8] = 0x02; // Procedure transaction identity:2
+	buf[9] = 0xc1; //Activate default EPS bearer conext request
+	buf[10] = 0x01; //Length:1
+	buf[11] = 0x05; //QCI:5
+	buf[12] = 0x04; //Length:4 (fixed)
+	&buf[13] = 0x03696d73; //APN:ims
+	buf[17] = 0x05; //Length:5 (total len)
+	buf[18] = 0x01; //Spare bit(s) & PDN type:IPV4(1)
+	&buf[19] = 0xc0a8c80a; //PDN IPv4:192.168.200.10
+	
+	buf[23] = 0x5e; // ID:APN aggregate maximum bit rate
+	buf[24] = 0x02; //Length:2
+	buf[25] = 0x97; //APN-AMBR for downlink:2048 kbps
+	buf[26] = 0x97; //APN-AMBR for uplink:2048 kbps
+	
+	buf[27] = 0x58; //ESM cause ID:0X58
+	buf[28] = 0x32; //PDN type IPv4 only allowed(50)
+	
+	buf[29] = 0x27.; //Element ID
+	buf[30] = 0x48; //Length:72 (total len)
+	buf[31] = 0x80; 
+	&buf[32] = 0x8021; //Internet Protocol Control Protocol(0x8021)
+	buf[34] = 0x10; //Length:16
+	buf[35] = 0x03; //Configuration Nak(3)
+	buf[36] = 0x01; //Identifier:1
+	&buf[37] = 0x0010; //Length:16 (fixed)
+	buf[39] = 0x81; //Primary DNS Server IP Address(129)
+	buf[40] = 0x06; //Length:6 (fixed)
+	&buf[41] = 0xc0a80764; //DNS Address:192.168.7.100
+	buf[45] = 0x83; //Secondary DNS Server IP Address(131)
+	buf[46] = 0x06; // Length:6
+	&buf[47] = 0x00000000; // Second DNS Address:0.0.0.0
+	&buf[51] = 0x0003; //DNS Server IPv6 Address(0x0003)
+	buf[53] = 0x10; //Length:16
+	&buf[54] = 0x00000000000000000000000000000000 ; //IPv6: ::
+		&buf[70] = 0x000d; //DNS Server IPv4 Address(0x000d)
+	buf[72] = 0x04; //Length:4
+	&buf[73] = 0xc0a80764; //IPv4:192.168.7.100
+	
+	&buf[77] = 0x000c; //P-CSCF IPv4 Address
+	buf[79] = 0x04; //Length:4 (fixed)
+	&buf[80] = 0xc0a8076f; //Ipv4:192.168.7.111(IMS Server IP)
+	&buf[84] = 0x0001; //P-CSCF Ipv6 Address
+	buf[86] = 0x10; //Length:10 (fixed)
+	&buf[87] = 0x00000000000000000000000000000000;//Ipv6: ::  (buf[102])
+	*/
+	
+	
+	char c[]="6202c101050403696d730501c0a8c80a5e0297975832274880802110030100108106c0a8076483060000000000031000000000000000000000000000000000000d04c0a80764000c04c0a8076f00011000000000000000000000000000000000";
+	c2u(&buf[7],c,96);
+	
+	ss=do_EIA1(ue->sec.k_nasint,&buf[6],97,ue->sec.int_al,&ue->sec.dl_count);
+	memcpy(&buf[2],ss,4);
+	
+	buf[0] = 102;
+	return buf[0]+1;
+} 
+
+int nas_encode::encode_Activate_default_EPS_bearer_context_req_qci1(uint8_t* buf,ue_ctx_t* ue){
+	int len=0;
+	uint8_t* ss;
+	buf[1] = 0x27;
+	
+	buf[6]=ue->sec.dl_count;
+	/*
+	buf[7] = 0x72; // EPS bear id:7
+	buf[8] = 0x00; // Procedure transaction identity:0
+	buf[9] = 0xc5; //Activate dedicated EPS bearer conext request
+	buf[10] = 0x06; //EPS bearer identity value 6
+	buf[11] = 0x05; //Length:5
+	buf[12] = 0x01; //qci:1
+	buf[13] = 0x87; buf[14] = 0x87; //Maximum bit rate 
+	buf[15] = 0x87; buf[16] = 0x87; //Guaranteed bit rate
+	
+	buf[16] = 0x51; Length:81
+	buf[17] = 0x24; //TFT,nUMBER OF Packet filters:4
+	buf[18] = 0x20; //spare bits:0,Uplink only(2)
+	buf[19] = 0x30; // Packet elvaluation precedence:48
+	buf[20] = 0x11; //Packetfilter length:17
+	buf[21] = 0x10; //IPv4 remote address type(16)
+	&buf[22] = 0xc0a7076e; //?? ims server
+	&buf[26] = 0xffffffff; //IPv4 address mask:255.255.255.255
+	buf[30] = 0x30;  //Protocol identifier/Next header type(48)
+	buf[31] = 0x11; //Protocol/header:UDP
+	buf[32] = 0X40; //Single locol port type
+	&buf[33] = 0xc35a; //??RTP Port: 50010;
+	buf[35] = 0x50; //Single remote port type 
+	&buf[36] = 0x9156; // Port:37206
+	
+	buf[38] = 0x11; // Spare bits ,Downlink only ,Packetfilter identifier :2
+	buf[39] =0x31; //Packet evaluation precedence:49
+	buf[40] = 0x11; //Packet filter length
+	buf[41] = 0x10; //IPv4 remote address type(16)
+	&buf[42] = 0xc0a7076e; //?? ims server
+	&buf[46] = 0xffffffff; //IPv4 address mask:255.255.255.255
+	buf[50] = 0x30;  //Protocol identifier/Next header type(48)
+	buf[51] = 0x11; //Protocol/header:UDP
+	buf[52] = 0X40; //Single locol port type(64)
+	&buf[53] = 0xc35a; //??RTP Port: 50010;
+	buf[55] = 0x50; //Single remote port type 
+	&buf[56] = 0x9156; // Port:37206
+	
+	buf[58] = 0x22; //Sparebit,Uplink only,Packet filter identifier:3
+	buf[59] =0x36; //Packet evaluation precedence:54
+	buf[60] = 0x11; //Packet filter length
+	buf[61] = 0x10; //IPv4 remote address type(16)
+	&buf[62] = 0xc0a7076e; //?? ims server
+	&buf[66] = 0xffffffff; //IPv4 address mask:255.255.255.255
+	buf[70] = 0x30;  //Protocol identifier/Next header type(48)
+	buf[71] = 0x11; //Protocol/header:UDP
+	buf[72] = 0X40; //Single locol port type(64)
+	&buf[73] = 0xc35b; //??RTP Port: 50011;
+	buf[75] = 0x50; //Single remote port type 
+	&buf[76] = 0x9157; // Port:37207
+	
+	buf[78] = 0x13; //Sparebit,Uplink only,Packet filter identifier:4
+	buf[79] =0x37; //Packet evaluation precedence:55
+	buf[80] = 0x11; //Packet filter length
+	buf[81] = 0x10; //IPv4 remote address type(16)
+	&buf[82] = 0xc0a7076e; //?? ims server
+	&buf[86] = 0xffffffff; //IPv4 address mask:255.255.255.255
+	buf[90] = 0x30;  //Protocol identifier/Next header type(48)
+	buf[91] = 0x11; //Protocol/header:UDP
+	buf[92] = 0X40; //Single locol port type(64)
+	&buf[93] = 0xc35b; //??RTP Port: 50011;
+	buf[95] = 0x50; //Single remote port type 
+	&buf[96] = 0x9157; // Port:37207
+
+	*/
+	
+	char c[]="7200c506050187878787512420301110c0a7076effffffff301140c35a50915611311110c0a7076effffffff301140c35a50915622361110c0a7076effffffff301140c35850915713371110c0a7076effffffff301140c35b509157";
+	c2u(&buf[7],c,92);
+	ss=do_EIA1(ue->sec.k_nasint,&buf[6],93,ue->sec.int_al,&ue->sec.dl_count);
+	memcpy(&buf[2],ss,4);
+	
+	buf[0] = 98;
+	return buf[0]+1;
+	
+}
+
 int nas_encode::encode_EPS_ID_GUTI(uint8_t* buf,ue_ctx_t* ue){
 	buf[0]=0x50;	//id-guti
 	buf[1]=0x0b;	//len

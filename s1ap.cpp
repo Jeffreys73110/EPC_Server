@@ -4,6 +4,7 @@
 #include<arpa/inet.h>
 #include"s1ap.h"
 #include"sec/f1.h"
+#include <unistd.h>
 
 s1ap* s1ap::m_instance=NULL;
 pthread_mutex_t s1ap_instance_mutex=PTHREAD_MUTEX_INITIALIZER;
@@ -37,8 +38,8 @@ int s1ap::get_next_mme_ue_id(){
 	return m_mme_ue_s1ap_id++;
 }
 int s1ap::get_next_ctrl_fteid(){
-	//return m_mme_global_ctrl_fteid++;
-	return m_mme_global_ctrl_fteid;
+	return m_mme_global_ctrl_fteid++;
+	//return m_mme_global_ctrl_fteid;
 }
 uint32_t s1ap::get_next_ue_ipv4(){
 	//FIXME: use ip pool instead of just increasing 1
@@ -157,10 +158,11 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 		else if(ue->prop.request_type==0){
 			uint32_t s11_sgw_fteid,s1u_sgw_fteid;
 			
-			printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate session request\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-			m_spgw->manage_create_session_request(get_next_ctrl_fteid(),5,9,&s11_sgw_fteid,&s1u_sgw_fteid);
+			printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate Asession request\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+			int next_ctrl_fteid = get_next_ctrl_fteid(); //the other fteid
+			m_spgw->manage_create_session_request(next_ctrl_fteid,5,9,&s11_sgw_fteid,&s1u_sgw_fteid);
 			ue->erab[5].s11_sgw_fteid = s11_sgw_fteid;
-			ue->erab[5].s11_mme_fteid = get_next_ctrl_fteid();
+			ue->erab[5].s11_mme_fteid = next_ctrl_fteid;
 			ue->erab[5].s1u_sgw_fteid = s1u_sgw_fteid;
 			ue->erab[5].pdn_ipv4 = get_next_pdn_ipv4();
 			ue->erab[5].pdn_ipv4 = m_ue_ipv4-1;
@@ -175,10 +177,14 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 
 	//Uplink NAS Transport
 	else if(buf[0]==0x0d){
+		
+		
+		
 		if(buf[1]!=0x40){printf("#error: UplinkNASTransport with wrong criticalty\n");}
 		uint32_t mme_ue_s1ap_id = 0;
 		ue_ctx_t ue;			//ue : Not used
 		UPLINK_NAS_TRANSPORT_STRUCT nas;
+				
 		m_s1ap_decode->decode_s1ap_UplinkNASTransport_message(buf+2,&ue,&mme_ue_s1ap_id,&nas); // ue: Not used
 		ue_ctx_t* temp_ue = find_ue_by_mme_ue_s1ap_id(mme_ue_s1ap_id);
 
@@ -225,6 +231,43 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 			next_message->temp_ue = temp_ue;
 			return m_s1ap_encode->encode_EMM_Information_Request_message(sendbuf,temp_ue);
 		}
+		//Tracking Area Update Request
+		if(nas.request_type==0x48){
+			return m_s1ap_encode->encode_Tracking_Area_Update_Accept(sendbuf, temp_ue);
+		}
+		//PDN connectivity request
+		if(nas.request_type==0xd0){
+			printf("HHHHHHHHHHHHHHHHHH");
+			
+			uint32_t s11_sgw_fteid,s1u_sgw_fteid;
+			int next_ctrl_fteid = get_next_ctrl_fteid();
+			printf("AAAAAAAAAAAAAAAAAAAAAA\ncreate session request\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+			
+			m_spgw->manage_create_session_request(next_ctrl_fteid,6,5,&s11_sgw_fteid,&s1u_sgw_fteid);
+			temp_ue->erab[6].s11_sgw_fteid = s11_sgw_fteid;
+			temp_ue->erab[6].s11_mme_fteid = next_ctrl_fteid;
+			temp_ue->erab[6].s1u_sgw_fteid = s1u_sgw_fteid;
+			temp_ue->erab[6].pdn_ipv4 = get_next_pdn_ipv4();
+			temp_ue->erab[6].pdn_ipv4 = m_ue_ipv4-1;
+			temp_ue->erab[6].s1u_ipv4 = get_spgw_addr_ipv4();
+			
+			//測試用
+			next_message->type = 8; 
+			next_message->temp_ue = temp_ue;
+			
+			return m_s1ap_encode->encode_PDN_connectivity_response(sendbuf,temp_ue);
+		}
+		
+		//Extended Service reject
+		if(nas.request_type==0x4c){
+			printf("Get Extended service request\n");
+			memcpy(temp_ue->prop.msg_type.ar.apn_name,nas.prop.esm_info.apn_name,nas.prop.esm_info.len);
+			temp_ue->prop.msg_type.ar.apn_len = nas.prop.esm_info.len;
+			//next_message->type = 8;
+			//next_message->temp_ue = temp_ue;
+			return m_s1ap_encode->encode_service_reject(sendbuf, temp_ue);
+		}
+			
 	}
 	
 	//UEContextReleaseRequest
@@ -246,9 +289,13 @@ printf("ue eps_mobile_id_type: %02x\n",ue->prop.msg_type.ar.eps_mobile_id.type);
 		
 		return m_s1ap_encode->encode_UEContextReleaseCommand_message(sendbuf,ue);
 	}
+
+	
 	return -1;
 }
 int s1ap::decode_s1ap_successfulOutcome_message(char* eNB_IP,uint8_t* buf,uint8_t* sendbuf,NEXT_MESSAGE_STRUCT* next_message){
+	
+	
 	//InitialContextSetupResponse
 	if(buf[0]==0x09){
 		//FIXME: extract mme_ue_s1ap_id and find by it
@@ -263,7 +310,21 @@ int s1ap::decode_s1ap_successfulOutcome_message(char* eNB_IP,uint8_t* buf,uint8_
 		eNB_LIST[index].UE_LIST[eNB_LIST[index].UE_NUM]=mme_ue_s1ap_id;
 		eNB_LIST[index].UE_NUM++;
 		eNB_LIST[index].print_properties();
+		
 	}
+	//E-RABSetupResponse QCI:5 & QCI:1
+	if(buf[0]==0x05){
+		uint32_t mme_ue_s1ap_id;
+		int ebid;
+		ue_ctx_t* ue = find_ue_by_mme_ue_s1ap_id(mme_ue_s1ap_id);
+		erab_setuplistctxtsures_t est;
+		m_s1ap_decode->decode_s1ap_ERABSetupResponse_message(buf+2,&est);
+		ebid = est.ebi;
+		m_spgw->manage_modify_bearer_request(ue->erab[ebid].s11_sgw_fteid,est);
+	}
+	
+	
+	
 	return -1;
 }
 
@@ -303,6 +364,27 @@ printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate session request\n@@@@@@@@@
 			get_next_guti(&next_message->temp_ue->prop.msg_type.ar.eps_mobile_id.guti);
 
 			return m_s1ap_encode->encode_InitialContextSetupRequest_message(sendbuf,next_message->temp_ue,5);
+		}
+		
+		//E-RABSetupRequest
+		if(next_message->type == 8){
+			next_message->type = -1;
+			
+			// Create Session Request, you can receive some information here
+			uint32_t s11_sgw_fteid,s1u_sgw_fteid;
+			printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\ncreate QCI 1 session request\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
+			
+			m_spgw->manage_create_session_request(get_next_ctrl_fteid(),7,1,&s11_sgw_fteid,&s1u_sgw_fteid);
+			
+			next_message->temp_ue->erab[7].s11_sgw_fteid = s11_sgw_fteid;
+			next_message->temp_ue->erab[7].s11_mme_fteid = get_next_ctrl_fteid();
+			next_message->temp_ue->erab[7].s1u_sgw_fteid = s1u_sgw_fteid;
+			next_message->temp_ue->erab[7].pdn_ipv4 = get_next_pdn_ipv4()-2;
+			next_message->temp_ue->erab[7].s1u_ipv4 = get_spgw_addr_ipv4();
+			
+			//sleep(1);
+			
+			return m_s1ap_encode->encode_ERABSetRequest_message(sendbuf,next_message->temp_ue,7);
 		}
 	}
 	else if(buf[0]&(1<<7)){
