@@ -9,7 +9,7 @@ The server includes Mobility Management Entity (MME), Serving and Packet Data Ne
     ┌───────────────┐       ┌───────────────┐       ┌───────────────┐       ┌───────────────────┐       ┌───────────────┐
     │               │       │               │       │               │       │                   │       │               │
     │               │       │               │       │               │       │                   │       │               │
-    │       UE      ├──────▶│       eNB     │──────▶│       MME     │──────▶│        GW/PGW     │──────▶│     P_CSCF    │
+    │       UE      ├──────▶│       eNB     ├──────▶│       MME     ├──────▶│        GW/PGW     ├──────▶│     P_CSCF    │
     │               │       │               │       │               │       │                   │       │               │
     │               │       │               │       │               │       │                   │       │               │
     │               │       │               │       │               │       │                   │       │               │
@@ -24,6 +24,9 @@ The server includes Mobility Management Entity (MME), Serving and Packet Data Ne
      (PDN_IP)                                                                            (PGW_IP)       (P_CSCF_IP)
 
 ```
+
+## OS
+ubuntu 18.04
 
 ## Installation and Configuration
 * set network environment
@@ -49,3 +52,10 @@ The server includes Mobility Management Entity (MME), Serving and Packet Data Ne
 	```shell
   	$ sudo sh unset_ip.sh
 	```
+
+
+
+
+## Troubleshooting
+#### Program crash
+Debug or re-execute the server.
