@@ -54,8 +54,12 @@ ubuntu 18.04
 	```
 
 
-
-
 ## Troubleshooting
+#### Initial attach failed
+Debug it or re-execute the server.
+
+#### TCP packet forwarding failed
+The TCP checksum calculation has bugs. They need to be fixed in the future.
+
 #### Program crash
 Debug or re-execute the server.
