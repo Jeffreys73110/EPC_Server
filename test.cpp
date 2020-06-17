@@ -41,17 +41,18 @@ void* spgw_start(void* arg){
 	return NULL;
 }
 void* mme_start(void* arg){
+	int fd = *(int*)arg;
 	while(1){//不停收下一則訊息
 	if (*(int*)arg<0)	break;
 
 		struct sctp_event_subscribe ses;
 		set_sctp_event(&ses);
-		if(setsockopt(*(int*)arg,IPPROTO_SCTP,
+		if(setsockopt(fd,IPPROTO_SCTP,
 		    SCTP_EVENTS,&ses,sizeof(ses))!=0) {
 			printf("set socket error\n");
 			exit(1);
 		}
-		server_response(*(int*)arg,0);
+		server_response(fd,0);
 	}
 }
 int socket_start(char* IP,int PORT_NUM){
@@ -73,7 +74,7 @@ int socket_start(char* IP,int PORT_NUM){
 }
 int main(){
 	
-	char LOCAL_IP_ADDRESS[64]=MME_IP;
+	char LOCAL_IP_ADDRESS[15]=MME_IP;
 	int soc=socket_start(LOCAL_IP_ADDRESS,36412);
 	pthread_t tid,tid1;
 	//pid_t pid;

@@ -114,6 +114,7 @@ mme::run(int& fd,int socketModeone_to_many){
 		socklen_t addr_size = sizeof(struct sockaddr_in);
 		getpeername(fd, (struct sockaddr *)&addr, &addr_size);
 		strcpy(eNB_IP, inet_ntoa(addr.sin_addr));
+		TestMsg_TRACE("Recv S1AP packet, fd=%d, ip=%s, port=%d\n", fd, eNB_IP, ntohs(addr.sin_port)); 
 		
 		
 		msg->msg_flags=0;
@@ -276,6 +277,7 @@ mme::run(int& fd,int socketModeone_to_many){
 
 		NEXT_MESSAGE_STRUCT next_message;
 		do{
+			LINE_TRACE();
 			iov_len=m_s1ap->handle_s1ap_pdu(eNB_IP,buf,sendbuf,&next_message);
 			printf("\nsendlen: %d\nsendbuf: \n",iov_len);
 			for(index=0;index<iov_len;index++) printf("%02x",sendbuf[index]);
@@ -285,6 +287,7 @@ mme::run(int& fd,int socketModeone_to_many){
 				iov->iov_len=iov_len;
 
 				s1ap_socket = fd;
+				TestMsg_TRACE("Send S1AP packet, fd=%d\n", fd); 
 				if(sendmsg(fd,msg,0)<0){
 					LINE_TRACE();
 					perror("send error");

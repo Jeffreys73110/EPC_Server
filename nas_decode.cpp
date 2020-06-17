@@ -405,51 +405,42 @@ void nas_decode::decode_UplinkNASTransportMessage_nas_pdu(uint8_t* msg,UPLINK_NA
 	int pos=decode_message_type_pos(&msg[1],&header,&pd);
 	nas->request_type=msg[pos+1];
 	
-	printf("Receive Message type : \n");
 	//Identity Response
 	if(nas->request_type==0x56){
-		printf("Identity Response");
 		decode_identity_response(&msg[pos+2],&nas->prop.id);
 	}
 
 	//Authentication Failure
 	if(nas->request_type==0x5c){
-		printf("Authentication Failure");
 		decode_Authentication_failure(&msg[pos+2],&nas->prop.af);
 	//TODO: return synch failure or other failures
 	}
 
 	//Authentication Response
 	if(nas->request_type==0x53){
-		printf("Authentication Response");
 		decode_Authentication_response(&msg[pos+2],&nas->prop.res);
 	}
 
 	//Security Mode Complete
 	if(nas->request_type==0x5e){
-		printf("Security Mode Complete");
 		if(len!=8){
 			//TODO: decode Security Mode's Optional things
 		}
 	}
 
-	//ESM information response
+	//ESM information Response
 	if(nas->request_type==0xda){
-		printf("ESM information response");
 		decode_ESM_information_response(&msg[pos+2],&nas->prop.esm_info);
 	}
 	
 	//Tracking Area Update Request
 	if(nas->request_type==0x48){
-		printf("Tracking Area Update Request");
+		
 	}
 	
+	//PDN Connectivity Request
 	if(nas->request_type==0xd0){
-		printf("PDN Connectivity request");
-	}
-	
-	if(nas->request_type==0x4c){
-		printf("Extended service request");
+
 	}
 	
 	printf("\n");

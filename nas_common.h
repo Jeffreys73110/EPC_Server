@@ -165,6 +165,7 @@ struct UPLINK_NAS_TRANSPORT_STRUCT{
 	UPLINK_NAS_TRANSPORT_UNION prop;
 };
 struct NAS_SERVICE_REQUEST_STRUCT{
+	bool Service_Request_Flag;
 	uint8_t KSI_and_sequence_number;
 };
 union NAS_INITIAL_UE_MESSAGE_UNION{

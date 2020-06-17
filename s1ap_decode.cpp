@@ -134,7 +134,7 @@ void s1ap_decode::decode_ProtocolIE_ERAB_SetupListCtxtSURes(uint8_t* buf,erab_se
 	est->ebi = (buf[4]>>1);
 	memcpy(&est->enb_ipv4,&buf[6],4);
 	memcpy(&est->s1u_enb_fteid,&buf[10],4);
-	printf("est: ebi: %d\n enb_ipv4: %08x\n s1u_enb_fteid: %08x\n",est->ebi,est->enb_ipv4,est->s1u_enb_fteid);
+	printf("est:\n ebi: %d\n enb_ipv4: %08x\n s1u_enb_fteid: %08x\n",est->ebi,est->enb_ipv4,est->s1u_enb_fteid);
 
 }
 void s1ap_decode::decode_ProtocolIE_ERAB_SetupListBearerSURes(uint8_t* buf,erab_setuplistctxtsures_t* est){
@@ -148,7 +148,7 @@ void s1ap_decode::decode_ProtocolIE_ERAB_SetupListBearerSURes(uint8_t* buf,erab_
 	est->ebi = (buf[4]>>1);
 	memcpy(&est->enb_ipv4,&buf[6],4);
 	memcpy(&est->s1u_enb_fteid,&buf[10],4);
-	printf("est: ebi: %d\n enb_ipv4: %08x\n s1u_enb_fteid: %08x\n",est->ebi,est->enb_ipv4,est->s1u_enb_fteid);
+	printf("est:\n ebi: %d\n enb_ipv4: %08x\n s1u_enb_fteid: %08x\n",est->ebi,est->enb_ipv4,est->s1u_enb_fteid);
 	
 }
 void s1ap_decode::decode_ProtocolIE_eNB_UE_S1AP_ID(uint8_t* buf,uint32_t* enb_ue_id){

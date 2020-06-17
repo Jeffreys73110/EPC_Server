@@ -19,7 +19,7 @@ private:
 	int encode_NAS_PDU_ESM_Information_Request(uint8_t* buf,ue_ctx_t* ue);
 	int encode_NAS_PDU_Tracking_Area_Update_Accept(uint8_t* buf,ue_ctx_t* ue);
 	int encode_NAS_PDU_EMM_Information_Request(uint8_t* buf,ue_ctx_t* ue);
-	int encode_NAS_PDU_Service_reject(uint8_t* buf,ue_ctx_t* ue);
+	// int encode_NAS_PDU_Service_reject(uint8_t* buf,ue_ctx_t* ue);
 	int encode_UESecurityCapabilities(uint8_t* buf,ue_ctx_t* ue);
 	int encode_ERABToSetupListCtxtSUReq(uint8_t* buf,ue_ctx_t* ue,int ebi,int msg_type);
 	int encode_ERABToBeSetupListBearerSUReq(uint8_t* buf,ue_ctx_t* ue);
@@ -47,6 +47,6 @@ public:
 	int encode_InitialContextSetupRequest_UECapabilityInformation_message(uint8_t*,ue_ctx_t*);
 	int encode_UEContextReleaseCommand_message(uint8_t*,ue_ctx_t*);
 	int encode_PDN_connectivity_response(uint8_t* ,ue_ctx_t*);
-	int encode_service_reject(uint8_t* ,ue_ctx_t*);
+	// int encode_service_reject(uint8_t* ,ue_ctx_t*);
 };
 #endif

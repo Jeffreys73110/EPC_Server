@@ -35,6 +35,7 @@ public:
 	int find_eNB_by_IP(char* IP);
 	//enb_ctx_t* add_new_enb_ctx_t();
 	ue_ctx_t* add_new_ue_ctx_t();
+	int set_inital_ue_ctx_t(ue_ctx_t *ue);
 	int delete_ue_ctx_t(uint32_t mme_ue_s1ap_id);
 	int show_ue_ctx_t();
 	ue_ctx_t* find_ue_by_mme_ue_s1ap_id(uint32_t);

@@ -20,7 +20,7 @@ public:
 	int encode_EPS_network_feature_support(uint8_t* buf);
 	int encode_ESM_Information_Request(uint8_t* buf,ue_ctx_t* ue);
 	int encode_Tracking_Area_Update_Accept(uint8_t* buf,ue_ctx_t* ue);
-	int encode_Service_reject(uint8_t* buf,ue_ctx_t* ue);
+	// int encode_Service_reject(uint8_t* buf,ue_ctx_t* ue);
 	int encode_EMM_Information_Request(uint8_t* buf,ue_ctx_t* ue);
 	int encode_Activate_default_context_request(uint8_t* buf,ue_ctx_t* ue);
 	int encode_Activate_default_EPS_bearer_context_req(uint8_t* buf,ue_ctx_t* ue);

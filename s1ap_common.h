@@ -115,6 +115,7 @@ struct ue_ctx_t{
 	uint32_t	eNB_UE_ID;
 	uint32_t	MME_UE_ID;
 	ue_state_t	state;
+	bool		REGISTERED;
 	ue_sec_ctx_t	sec;
 	ue_erab_ctx_t	erab[UE_eRAB_Ctx_SIZE];
 	uint8_t UERadioCapability_ctx_t[300];

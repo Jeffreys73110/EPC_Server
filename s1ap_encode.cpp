@@ -159,12 +159,12 @@ int s1ap_encode::encode_NAS_PDU_Tracking_Area_Update_Accept(uint8_t* buf,ue_ctx_
 	return buf[3]+4;
 }
 
-int s1ap_encode::encode_NAS_PDU_Service_reject(uint8_t* buf,ue_ctx_t* ue){
-	buf[0]=0x00; buf[1]=0x1a;	//id-NAS-PDU
-	buf[2]=0x00;	//reject
-	buf[3]=m_nas_encode->encode_Service_reject(&buf[4],ue);
-	return buf[3]+4;
-}
+// int s1ap_encode::encode_NAS_PDU_Service_reject(uint8_t* buf,ue_ctx_t* ue){
+// 	buf[0]=0x00; buf[1]=0x1a;	//id-NAS-PDU
+// 	buf[2]=0x00;	//reject
+// 	buf[3]=m_nas_encode->encode_Service_reject(&buf[4],ue);
+// 	return buf[3]+4;
+// }
 
 /*
 int s1ap_encode::encode_(uint8_t* buf,ue_ctx_t* ue){
@@ -570,21 +570,21 @@ int s1ap_encode::encode_ERABSetRequest_message(uint8_t* buf,ue_ctx_t* ue,int ebi
 }
 
 
-int s1ap_encode::encode_service_reject(uint8_t* buf,ue_ctx_t* ue){
-	int len=0;
-	buf[0] = 0x00;
-	buf[1] = 0x0b;
-	buf[2] = 0x40; //ignore
-	buf[4] = 0x00;
-	buf[5] = 0x00;  buf[6] = 0x03; //3個item
+// int s1ap_encode::encode_service_reject(uint8_t* buf,ue_ctx_t* ue){
+// 	int len=0;
+// 	buf[0] = 0x00;
+// 	buf[1] = 0x0b;
+// 	buf[2] = 0x40; //ignore
+// 	buf[4] = 0x00;
+// 	buf[5] = 0x00;  buf[6] = 0x03; //3個item
 	
-	len+=encode_MME_UE_S1AP_ID(&buf[7],ue->MME_UE_ID);
-	len+=encode_ENB_UE_S1AP_ID(&buf[7+len],ue->eNB_UE_ID);
-	len+=encode_NAS_PDU_Service_reject(&buf[7+len],ue);
-	buf[3]=len+3;
+// 	len+=encode_MME_UE_S1AP_ID(&buf[7],ue->MME_UE_ID);
+// 	len+=encode_ENB_UE_S1AP_ID(&buf[7+len],ue->eNB_UE_ID);
+// 	len+=encode_NAS_PDU_Service_reject(&buf[7+len],ue);
+// 	buf[3]=len+3;
 	
-	return buf[3]+4;
-}
+// 	return buf[3]+4;
+// }
 
 /*
 int main(){

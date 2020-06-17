@@ -188,18 +188,18 @@ int nas_encode::encode_Tracking_Area_Update_Accept(uint8_t* buf,ue_ctx_t* ue){
 	memcpy(&buf[2],ss,4);
 	return buf[0]+1;
 }
-int nas_encode::encode_Service_reject(uint8_t* buf,ue_ctx_t* ue){
-	printf("Send Message type : Service reject\n");
+// int nas_encode::encode_Service_reject(uint8_t* buf,ue_ctx_t* ue){
+// 	printf("Send Message type : Service reject\n");
 	
-	buf[1] = 0x07;	
-	buf[2] = 0x4e;
-	buf[3] = 0x12;
+// 	buf[1] = 0x07;	
+// 	buf[2] = 0x4e;
+// 	buf[3] = 0x12;
 	
-	buf[0] =0x03;
+// 	buf[0] =0x03;
 	
-	return buf[0]+1;
+// 	return buf[0]+1;
 	
-}
+// }
 
 
 int nas_encode::encode_EMM_Information_Request(uint8_t* buf,ue_ctx_t* ue){
